@@ -56,7 +56,7 @@ jobs:
           });
           """
           html = html[:start] + replacement + html[end:]
-          injection = '<script type="module" src="./interstellar-flight.js?v=bea3bdd"></script>\n'
+          injection = '<script type="module" src="./interstellar-flight.js?v=91dedc9"></script>\n'
           if injection not in html:
               html = html.replace("</body>", injection + "</body>", 1)
           page.write_text(html, encoding="utf-8")
