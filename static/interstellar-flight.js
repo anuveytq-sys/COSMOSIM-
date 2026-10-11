@@ -16,20 +16,43 @@ Object.assign(flightCanvas.style, {
 host.appendChild(flightCanvas);
 
 const renderer = new THREE.WebGLRenderer({canvas: flightCanvas, antialias: true, alpha: false});
-renderer.setPixelRatio(Math.min(devicePixelRatio, 1.6));
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
 renderer.setSize(innerWidth, innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.15;
+renderer.toneMappingExposure = 1.28;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x02030a);
 const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.02, 3000);
 camera.position.set(0, 0.8, 6);
 
-scene.add(new THREE.AmbientLight(0x7188b5, 1.1));
-const sunLight = new THREE.PointLight(0xffc46e, 3.2, 120);
+scene.add(new THREE.HemisphereLight(0x91baff, 0x080a20, 1.25));
+scene.add(new THREE.AmbientLight(0x536aa0, .42));
+const sunLight = new THREE.PointLight(0xffc46e, 5.5, 180, 1.5);
+sunLight.position.set(0, 2, -38);
 scene.add(sunLight);
+
+// Layered additive nebula particle clouds.
+for (const [layer, color] of [0x4b3cff, 0x13bfe7, 0xb02bff, 0xff477e].entries()) {
+  const positions = new Float32Array(950 * 3);
+  for (let i = 0; i < 950; i++) {
+    const cluster = i % 3;
+    positions[i*3] = (cluster - 1) * 34 + (Math.random() - .5) * 35;
+    positions[i*3+1] = (Math.random() - .5) * 28 + Math.sin(i * .07) * 3;
+    positions[i*3+2] = -24 - Math.random() * 145;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  const cloud = new THREE.Points(geo, new THREE.PointsMaterial({
+    color, size: 1.0 + layer * .22, transparent: true, opacity: .11,
+    blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true
+  }));
+  cloud.userData.parallax = .82 + layer * .035;
+  scene.add(cloud);
+}
 
 // Ship: the camera is the cockpit. The small HUD ship is shown ahead for orientation.
 const ship = new THREE.Group();
@@ -75,7 +98,10 @@ const shipState = {
   pitch: 0,
   roll: 0,
   thrust: 5.5,
-  maxSpeed: 16,
+  maxSpeed: 24,
+  spawn: new THREE.Vector3(0, 0, 6),
+  wormholeCooldown: 0,
+  blackHoleWarning: 0,
 };
 
 const keys = new Set();
@@ -92,21 +118,42 @@ function makeGlowSphere(radius, color, emissive = color) {
 function addBody(type) {
   const body = {type, mass: 1, velocity: new THREE.Vector3(), linked: null, mesh: null, name: type};
   if (type === 'blackhole') {
-    body.mass = 30;
-    body.mesh = makeGlowSphere(1.05, 0x010108, 0x05020b);
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(1.32, .075, 10, 96), new THREE.MeshBasicMaterial({color: 0xffa14e, transparent: true, opacity: .85}));
-    body.mesh.add(ring);
+    body.mass = 34;
+    body.mesh = makeGlowSphere(1.0, 0x010108, 0x05020b);
+    const disk = new THREE.Mesh(new THREE.TorusGeometry(1.45, .22, 14, 128),
+      new THREE.MeshStandardMaterial({color: 0xff7a32, emissive: 0xff3b08, emissiveIntensity: 2.2, metalness: .25, roughness: .3, side: THREE.DoubleSide}));
+    disk.rotation.x = .22; body.mesh.add(disk);
+    const outer = new THREE.Mesh(new THREE.TorusGeometry(1.85, .075, 10, 128),
+      new THREE.MeshBasicMaterial({color: 0xffd49a, transparent: true, opacity: .85}));
+    outer.rotation.x = .22; body.mesh.add(outer);
+    body.mesh.add(new THREE.Mesh(new THREE.TorusGeometry(1.13, .035, 8, 128),
+      new THREE.MeshBasicMaterial({color: 0xfff0c7, transparent: true, opacity: .98})));
+    body.mesh.add(new THREE.Mesh(new THREE.SphereGeometry(1.55, 32, 24),
+      new THREE.MeshBasicMaterial({color: 0x6d39ff, transparent: true, opacity: .075, side: THREE.BackSide})));
     body.name = 'Black Hole';
   } else if (type === 'wormhole') {
     body.mass = 0;
     body.mesh = new THREE.Group();
-    const mouth = new THREE.Mesh(new THREE.TorusGeometry(1.1, .18, 12, 96), new THREE.MeshBasicMaterial({color: 0x62e7ff, transparent: true, opacity: .8}));
-    const inner = new THREE.Mesh(new THREE.TorusGeometry(.82, .06, 8, 96), new THREE.MeshBasicMaterial({color: 0xa16dff, transparent: true, opacity: .8}));
-    body.mesh.add(mouth, inner);
+    body.mesh.add(new THREE.Mesh(new THREE.TorusGeometry(1.1, .18, 16, 128),
+      new THREE.MeshBasicMaterial({color: 0x62e7ff, transparent: true, opacity: .96})));
+    body.mesh.add(new THREE.Mesh(new THREE.TorusGeometry(.82, .06, 10, 128),
+      new THREE.MeshBasicMaterial({color: 0xa16dff, transparent: true, opacity: .96})));
+    body.mesh.add(new THREE.Mesh(new THREE.CircleGeometry(.78, 64),
+      new THREE.MeshBasicMaterial({color: 0x2d0f78, transparent: true, opacity: .6, side: THREE.DoubleSide})));
+    body.exitMesh = new THREE.Group();
+    body.exitMesh.add(new THREE.Mesh(new THREE.TorusGeometry(1.08, .16, 14, 112),
+      new THREE.MeshBasicMaterial({color: 0xff65d8, transparent: true, opacity: .9})));
+    body.exitMesh.add(new THREE.Mesh(new THREE.TorusGeometry(.82, .05, 10, 112),
+      new THREE.MeshBasicMaterial({color: 0x68f8ff, transparent: true, opacity: .95})));
+    objectGroup.add(body.exitMesh);
     body.name = 'Wormhole A';
   } else {
     body.mass = 1;
-    body.mesh = makeGlowSphere(1.25, 0xff9d28, 0xff6b16);
+    body.mesh = makeGlowSphere(1.25, 0xffa83b, 0xff6818);
+    body.mesh.material.emissiveIntensity = 2.4;
+    body.mesh.add(new THREE.Mesh(new THREE.SphereGeometry(1.52, 32, 24),
+      new THREE.MeshBasicMaterial({color: 0xff8c25, transparent: true, opacity: .12, side: THREE.BackSide})));
+    body.mesh.add(new THREE.PointLight(0xffa33b, 3.5, 65, 1.7));
     body.name = 'Solar System';
     body.planets = [];
     const data = [
@@ -117,8 +164,25 @@ function addBody(type) {
     ];
     for (const [name, r, orbit, color] of data) {
       const p = makeGlowSphere(r, color, color);
-      body.mesh.add(p); body.planets.push({name, mesh: p, orbit, angle: Math.random() * Math.PI * 2, radius: r});
+      p.material.emissiveIntensity = .42;
+      body.mesh.add(p);
+      body.planets.push({name, mesh: p, orbit, angle: Math.random() * Math.PI * 2, radius: r});
+      if (name === 'Saturn') {
+        const rings = new THREE.Mesh(new THREE.TorusGeometry(r * 1.45, .055, 8, 48),
+          new THREE.MeshStandardMaterial({color: 0xe3cfa1, roughness: .7, metalness: .15, transparent: true, opacity: .8}));
+        rings.rotation.x = Math.PI / 2.5; p.add(rings);
+      }
     }
+    const belt = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(.075, 0),
+      new THREE.MeshStandardMaterial({color: 0x8c8d9b, roughness: .92, metalness: .08}), 260);
+    const dummy = new THREE.Object3D();
+    for (let i=0;i<260;i++) {
+      const angle=Math.random()*Math.PI*2, radius=13+Math.random()*7;
+      dummy.position.set(Math.cos(angle)*radius,(Math.random()-.5)*1.6,Math.sin(angle)*radius);
+      dummy.rotation.set(Math.random()*Math.PI,Math.random()*Math.PI,Math.random()*Math.PI);
+      dummy.scale.setScalar(.45+Math.random()*2.2); dummy.updateMatrix(); belt.setMatrixAt(i,dummy.matrix);
+    }
+    belt.instanceMatrix.needsUpdate=true; body.mesh.add(belt); body.asteroidBelt=belt;
   }
   body.mesh.userData.cosmosimBody = body;
   objectGroup.add(body.mesh);
@@ -129,7 +193,8 @@ function addBody(type) {
 function placeBody(body, pos) {
   body.mesh.position.copy(pos);
   if (body.type === 'wormhole') {
-    body.linked = new THREE.Vector3(pos.x, pos.y, pos.z - 28);
+    body.linked = new THREE.Vector3(pos.x + 1.5, pos.y, pos.z - 28);
+    if (body.exitMesh) body.exitMesh.position.copy(body.linked);
   }
 }
 
@@ -137,65 +202,73 @@ function clearBodies() {
   while (objects.length) {
     const body = objects.pop();
     objectGroup.remove(body.mesh);
+    if (body.exitMesh) objectGroup.remove(body.exitMesh);
   }
 }
 
 function addDefaultScene() {
   clearBodies();
-  const solar = addBody('solar'); placeBody(solar, new THREE.Vector3(0, 0, -42));
-  const bh = addBody('blackhole'); placeBody(bh, new THREE.Vector3(12, 0, -65));
-  const wh = addBody('wormhole'); placeBody(wh, new THREE.Vector3(-12, 1, -85));
+  const solar = addBody('solar'); placeBody(solar, new THREE.Vector3(0, 0, -78));
+  const bh = addBody('blackhole'); placeBody(bh, new THREE.Vector3(10, 1.5, -38));
+  const wh = addBody('wormhole'); placeBody(wh, new THREE.Vector3(-8, 1, -56));
   updateTargetOptions();
 }
 
-// Flight controls: W/S forward/back, A/D strafe left/right, arrows look, Q/E roll, Space brake.
+// Game-style flight: W/S thrust, A/D or left/right steer, arrows pitch.
 function handleInput(dt) {
-  const forward = new THREE.Vector3(0, 0, -1).applyEuler(ship.rotation).normalize();
-  const right = new THREE.Vector3(1, 0, 0).applyEuler(ship.rotation).normalize();
-  let acceleration = new THREE.Vector3();
-  if (keys.has('KeyW') || keys.has('ArrowUp')) acceleration.addScaledVector(forward, shipState.thrust);
-  if (keys.has('KeyS') || keys.has('ArrowDown')) acceleration.addScaledVector(forward, -shipState.thrust * .72);
-  if (keys.has('KeyA') || keys.has('ArrowLeft')) acceleration.addScaledVector(right, -shipState.thrust * .82);
-  if (keys.has('KeyD') || keys.has('ArrowRight')) acceleration.addScaledVector(right, shipState.thrust * .82);
-  if (keys.has('KeyQ')) shipState.roll += 1.5 * dt;
-  if (keys.has('KeyE')) shipState.roll -= 1.5 * dt;
-  if (keys.has('Space')) shipState.velocity.multiplyScalar(Math.pow(.08, dt));
+  if (keys.has('KeyA') || keys.has('ArrowLeft')) shipState.yaw += 1.65 * dt;
+  if (keys.has('KeyD') || keys.has('ArrowRight')) shipState.yaw -= 1.65 * dt;
+  if (keys.has('ArrowUp')) shipState.pitch = THREE.MathUtils.clamp(shipState.pitch + 1.15 * dt, -1.25, 1.25);
+  if (keys.has('ArrowDown')) shipState.pitch = THREE.MathUtils.clamp(shipState.pitch - 1.15 * dt, -1.25, 1.25);
+  if (keys.has('KeyQ')) shipState.roll += 1.35 * dt;
+  if (keys.has('KeyE')) shipState.roll -= 1.35 * dt;
+  const orientation = new THREE.Euler(shipState.pitch, shipState.yaw, shipState.roll, 'YXZ');
+  const forward = new THREE.Vector3(0, 0, -1).applyEuler(orientation).normalize();
+  const acceleration = new THREE.Vector3();
+  if (keys.has('KeyW')) acceleration.addScaledVector(forward, shipState.thrust);
+  if (keys.has('KeyS')) acceleration.addScaledVector(forward, -shipState.thrust * .68);
+  if (keys.has('Space')) shipState.velocity.addScaledVector(forward, -shipState.thrust * 1.9 * dt);
   shipState.velocity.addScaledVector(acceleration, dt);
+  shipState.velocity.multiplyScalar(Math.pow(.998, dt * 60));
   const speed = shipState.velocity.length();
   if (speed > shipState.maxSpeed) shipState.velocity.multiplyScalar(shipState.maxSpeed / speed);
   shipState.position.addScaledVector(shipState.velocity, dt);
 }
 
 function gravityAndWormholes(dt) {
+  shipState.wormholeCooldown = Math.max(0, shipState.wormholeCooldown - dt);
+  shipState.blackHoleWarning = Math.max(0, shipState.blackHoleWarning - dt);
+  const forward = new THREE.Vector3(0, 0, -1).applyEuler(
+    new THREE.Euler(shipState.pitch, shipState.yaw, shipState.roll, 'YXZ')).normalize();
   for (const body of objects) {
     const offset = body.mesh.position.clone().sub(shipState.position);
-    const r2 = Math.max(offset.lengthSq(), .45 * .45);
+    const distance = Math.max(offset.length(), .001), r2 = distance * distance;
     if (body.type === 'blackhole') {
-      // Newtonian gravity with a deliberately strong visual scale for this game-like simulator.
-      // Acceleration follows GM/r^2 and becomes very strong near the event-horizon proxy.
-      const accel = 0.95 * body.mass / r2;
-      shipState.velocity.addScaledVector(offset.normalize(), accel * dt);
-      if (offset.length() < 1.28) {
-        shipState.velocity.multiplyScalar(.35);
-        setFlightMessage('BLACK HOLE: extreme gravitational pull — steer away or escape with thrust.');
+      const accel = (1.65 * body.mass) / (r2 + 2.4);
+      shipState.velocity.addScaledVector(offset.clone().normalize(), accel * dt);
+      if (distance < 8 && shipState.blackHoleWarning <= 0) {
+        setFlightMessage('GRAVITY WELL: black-hole pull is increasing. Thrust away to escape!');
+        shipState.blackHoleWarning = 1.5;
       }
-    }
-    if (body.type === 'wormhole') {
-      const distance = offset.length();
-      if (distance < 1.55 && body.linked) {
-        shipState.position.copy(body.linked).add(new THREE.Vector3(0, 0, 2));
-        shipState.velocity.applyAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
-        setFlightMessage('WORMHOLE TRANSIT: teleported to the linked exit.');
+      if (distance < 1.25) {
+        shipState.position.copy(body.mesh.position).add(new THREE.Vector3(0, 0, 4.2));
+        shipState.velocity.set(0, 0, 0);
+        setFlightMessage('EVENT HORIZON: craft captured by the black hole. Recovery point restored.');
       }
-    }
-    if (body.type === 'solar') {
-      // Sun's gravity is scaled from GM/r^2. Planets are visual orbital markers.
-      const accel = 2.2 / r2;
-      shipState.velocity.addScaledVector(offset.normalize(), accel * dt);
+    } else if (body.type === 'wormhole') {
+      if (distance < 1.7 && body.linked && shipState.wormholeCooldown <= 0) {
+        shipState.position.copy(body.linked).addScaledVector(forward, 3.2);
+        shipState.wormholeCooldown = 2.2;
+        setFlightMessage('WORMHOLE TRANSIT: crossed the throat and emerged from the linked exit!');
+      }
+    } else if (body.type === 'solar') {
+      const accel = 1.15 / (r2 + 3.5);
+      shipState.velocity.addScaledVector(offset.clone().normalize(), accel * dt);
       for (const p of body.planets) {
         p.angle += .32 * Math.pow(Math.max(.2, 3.3 / p.orbit), 1.5) * dt;
-        p.mesh.position.set(Math.cos(p.angle) * p.orbit, 0, Math.sin(p.angle) * p.orbit);
+        p.mesh.position.set(Math.cos(p.angle) * p.orbit, Math.sin(p.angle * .35) * .12, Math.sin(p.angle) * p.orbit);
       }
+      if (body.asteroidBelt) body.asteroidBelt.rotation.y += dt * .018;
     }
   }
 }
@@ -212,8 +285,9 @@ function goToTarget(name) {
   const body = objects.find(o => o.name === name || (name === 'Solar System' && o.type === 'solar'));
   if (!body) return;
   const destination = body.mesh.position.clone();
-  shipState.position.copy(destination.add(new THREE.Vector3(0, 0, 4)));
-  shipState.velocity.set(0, 0, -1.2);
+  const forward = new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(shipState.pitch, shipState.yaw, shipState.roll, 'YXZ')).normalize();
+  shipState.position.copy(destination).addScaledVector(forward, -5.5);
+  shipState.velocity.copy(forward).multiplyScalar(2.2);
   targetName = body.name;
   setFlightMessage('Autopilot jump: positioned near ' + body.name + '. Manual controls remain active.');
 }
@@ -239,9 +313,10 @@ function buildFlightPanel() {
   panel.innerHTML = `
     <div id="interstellarPanel">
       <h3>🚀 INTERSTELLAR FLIGHT DECK</h3>
-      <div class="flightRow"><b>Controls</b><span>W/S = front/back · A/D = left/right</span></div>
-      <div class="flightRow"><b>Look</b><span>Arrow keys · drag mouse/touch to turn</span></div>
-      <div class="flightRow"><b>Brake</b><span>Space · Q/E = roll</span></div>
+      <div class="flightRow"><b>Drive</b><span>W/S thrust · A/D steer</span></div>
+      <div class="flightRow"><b>Look</b><span>Arrow keys or drag screen</span></div>
+      <div class="flightRow"><b>Brake / Roll</b><span>Space · Q/E</span></div>
+      <div class="flightRow"><b>Physics</b><span>Gravity wells · event horizon · wormhole transit</span></div>
       <div class="flightActions">
         <button id="flightAddBH" type="button">＋ Black Hole</button>
         <button id="flightAddWH" type="button">＋ Wormhole</button>
@@ -253,23 +328,37 @@ function buildFlightPanel() {
         <button id="flightGo" type="button">Go there</button>
         <button id="flightReset" type="button" class="secondary">Reset flight</button>
       </div>
-      <div id="flightMessage">WASD to fly. Gravity, wormhole transit and orbital motion are active.</div>
+      <div id="flightMessage">W to accelerate, S to reverse, A/D to steer. Drag to look around.</div>
     </div>`;
   document.body.appendChild(panel);
+  let deckToggle = document.getElementById('flightDeckToggle');
+  if (!deckToggle) {
+    deckToggle = document.createElement('button');
+    deckToggle.id = 'flightDeckToggle'; deckToggle.type = 'button';
+    deckToggle.textContent = 'Hide Flight Deck';
+    document.body.appendChild(deckToggle);
+    deckToggle.addEventListener('click', () => {
+      const deck = document.getElementById('interstellarPanelRoot');
+      const hidden = deck.style.display === 'none';
+      deck.style.display = hidden ? 'block' : 'none';
+      deckToggle.textContent = hidden ? 'Hide Flight Deck' : 'Show Flight Deck';
+      deckToggle.setAttribute('aria-expanded', String(hidden));
+    });
+  }
 
   document.getElementById('flightAddBH').onclick = () => {
     const b = addBody('blackhole');
-    placeBody(b, shipState.position.clone().add(new THREE.Vector3(8, 0, -24).applyEuler(ship.rotation)));
+    placeBody(b, shipState.position.clone().add(new THREE.Vector3(0, 0, -20).applyEuler(new THREE.Euler(shipState.pitch, shipState.yaw, shipState.roll, 'YXZ'))));
     updateTargetOptions(); setFlightMessage('Black hole added ahead. Its gravitational pull is active.');
   };
   document.getElementById('flightAddWH').onclick = () => {
     const w = addBody('wormhole');
-    placeBody(w, shipState.position.clone().add(new THREE.Vector3(-5, 0, -28).applyEuler(ship.rotation)));
+    placeBody(w, shipState.position.clone().add(new THREE.Vector3(0, 0, -22).applyEuler(new THREE.Euler(shipState.pitch, shipState.yaw, shipState.roll, 'YXZ'))));
     updateTargetOptions(); setFlightMessage('Wormhole added ahead. Its linked exit is 28 scene units beyond the mouth.');
   };
   document.getElementById('flightAddSolar').onclick = () => {
     const solar = addBody('solar');
-    placeBody(solar, shipState.position.clone().add(new THREE.Vector3(5, 0, -38).applyEuler(ship.rotation)));
+    placeBody(solar, shipState.position.clone().add(new THREE.Vector3(0, 0, -34).applyEuler(new THREE.Euler(shipState.pitch, shipState.yaw, shipState.roll, 'YXZ'))));
     updateTargetOptions(); setFlightMessage('Solar system added. Select a planet system target and fly manually.');
   };
   document.getElementById('flightGo').onclick = () => goToTarget(document.getElementById('flightTarget').value);
@@ -279,9 +368,10 @@ function buildFlightPanel() {
 }
 
 function resetFlight() {
-  shipState.position.set(0, 0, 6);
+  shipState.position.copy(shipState.spawn);
   shipState.velocity.set(0, 0, -2.2);
   shipState.yaw = 0; shipState.pitch = 0; shipState.roll = 0;
+  shipState.wormholeCooldown = 0; shipState.blackHoleWarning = 0;
   addDefaultScene();
   setFlightMessage('Flight reset. WASD to drive; gravity and wormhole transit are active.');
 }
@@ -290,6 +380,8 @@ function showFlight(active) {
   const panel = buildFlightPanel();
   document.body.classList.toggle('interstellar-flight-active', active);
   panel.style.display = active ? 'block' : 'none';
+  const deckToggle = document.getElementById('flightDeckToggle');
+  if (deckToggle) { deckToggle.style.display = active ? 'block' : 'none'; deckToggle.textContent = 'Hide Flight Deck'; deckToggle.setAttribute('aria-expanded', 'true'); }
   touchPad.style.display = active ? 'block' : 'none';
   // The shared command deck belongs to the other simulations; hide it only
   // while Interstellar Flight is selected so its own deck is the only one shown.
@@ -315,10 +407,11 @@ document.querySelectorAll('#spaceMenu .simChoice').forEach(btn => {
 
 window.addEventListener('keydown', e => {
   if (flightCanvas.style.display !== 'block') return;
-  keys.add(e.code);
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
+  keys.add(e.code);
 });
 window.addEventListener('keyup', e => keys.delete(e.code));
+window.addEventListener('blur', () => keys.clear());
 
 flightCanvas.addEventListener('pointerdown', e => { mouse.active = true; mouse.lastX = e.clientX; mouse.lastY = e.clientY; flightCanvas.setPointerCapture?.(e.pointerId); });
 flightCanvas.addEventListener('pointermove', e => {
@@ -339,14 +432,14 @@ touchPad.innerHTML = '<button data-key="KeyW">▲</button><div><button data-key=
 document.body.appendChild(touchPad);
 for (const b of touchPad.querySelectorAll('button')) {
   const code = b.dataset.key;
-  const down = e => { e.preventDefault(); keys.add(code); };
+  const down = e => { e.preventDefault(); keys.add(code); b.setPointerCapture?.(e.pointerId); };
   const up = e => { e.preventDefault(); keys.delete(code); };
-  b.addEventListener('pointerdown', down); b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('pointerleave', up);
+  b.addEventListener('pointerdown', down); b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('lostpointercapture', up);
 }
 
 const style = document.createElement('style');
 style.textContent = `
-#interstellarFlightCanvas{cursor:crosshair}
+#interstellarFlightCanvas{cursor:crosshair;touch-action:none}
 body:not(.interstellar-flight-active) #interstellarPanelRoot{display:none!important;}
 body:not(.interstellar-flight-active) #flightTouchPad{display:none!important;}
 body.interstellar-flight-active #simControls{display:none!important;}
@@ -360,8 +453,9 @@ body.interstellar-flight-active #simControls{display:none!important;}
 #interstellarPanelRoot .flightActions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin-top:7px}
 #interstellarPanelRoot #flightMessage{font-size:10px;line-height:1.4;color:#9feaff;margin-top:7px}
 #flightTouchPad{display:none;position:fixed;z-index:31;left:14px;bottom:14px;touch-action:none;user-select:none;text-align:center}
-#flightTouchPad button{width:46px;height:42px;margin:3px;padding:0;background:#101b36dd;border:1px solid #6074ad;color:#fff;border-radius:10px;font-size:18px}
-@media(max-width:700px){#interstellarPanelRoot{max-height:40vh;right:8px;bottom:8px;width:min(330px,calc(100vw - 16px));}#interstellarPanelRoot .flightActions{grid-template-columns:repeat(3,minmax(0,1fr))}}
+#flightTouchPad button{width:54px;height:50px;margin:4px;padding:0;background:linear-gradient(145deg,#1a3761ee,#080f24ee);border:1px solid #72d9ff;color:#fff;border-radius:14px;font-size:21px;box-shadow:0 4px 18px #0008;touch-action:none}
+#flightDeckToggle{display:none;position:fixed;z-index:32;right:14px;bottom:14px;border:1px solid #6bdfff;border-radius:999px;padding:11px 15px;background:linear-gradient(135deg,#152e52f5,#231448f5);color:#f4fbff;font:700 12px system-ui;box-shadow:0 5px 20px #0009}
+@media(max-width:700px){#interstellarPanelRoot{max-height:40vh;right:8px;bottom:72px;width:min(330px,calc(100vw - 16px));}#interstellarPanelRoot .flightActions{grid-template-columns:repeat(3,minmax(0,1fr))}#flightTouchPad{left:7px;bottom:8px}#flightDeckToggle{right:8px;bottom:8px}}
 `;
 document.head.appendChild(style);
 
@@ -374,7 +468,10 @@ function animate() {
   updateFlightCamera();
   // Parallax: keep the background starfield around the craft while the ship moves.
   starPoints.position.copy(shipState.position).multiplyScalar(.92);
+  scene.children.forEach(o => { if (o.isPoints && o !== starPoints && o.userData.parallax) o.position.copy(shipState.position).multiplyScalar(o.userData.parallax); });
   objectGroup.children.forEach(o => { if (o.userData.cosmosimBody?.type === 'wormhole') o.rotation.z += dt * .35; });
+  const deckToggle = document.getElementById('flightDeckToggle');
+  if (deckToggle && deckToggle.style.display !== 'none') deckToggle.textContent = document.getElementById('interstellarPanelRoot')?.style.display === 'none' ? 'Show Flight Deck' : 'Hide Flight Deck';
   renderer.render(scene, camera);
 }
 animate();
