@@ -1,6 +1,6 @@
 import os
 import json
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, Response
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -11,7 +11,16 @@ MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
 @app.route("/")
 def home():
-    return app.send_static_file("index.html")
+    # Keep the existing COSMOSIM page intact and inject the Interstellar Flight
+    # upgrade as an isolated module. Other menu simulations continue to use the
+    # original renderer and controls.
+    page_path = os.path.join(app.static_folder, "index.html")
+    with open(page_path, "r", encoding="utf-8") as handle:
+        html = handle.read()
+    tag = '<script type="module" src="/static/interstellar-flight.js"></script>'
+    if tag not in html:
+        html = html.replace("</body>", f"{tag}</body>")
+    return Response(html, mimetype="text/html")
 
 
 @app.route("/api/command", methods=["POST"])
@@ -45,7 +54,7 @@ disk (boolean),
 distance (number from 4 to 20, in arbitrary scene units),
 speed (number from 0.2 to 3),
 description (short plain-language explanation).
-Do not claim this simple visualization is a full general-relativity simulation.
+Do not claim this simple visualization is a full general relativity simulation.
 For requests about other objects, adapt the black-hole scene as reasonably as possible.
 User request: {text}
 """
