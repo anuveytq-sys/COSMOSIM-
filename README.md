@@ -93,7 +93,8 @@ Once configured, open the local address displayed by the application in your bro
 * [x]	Set up the Python application.
 * [ ]	Improve the simulation experience.
 * [ ]	Add project screenshots and demonstrations.
-* [ ]	Deploy the application online.
+* [x]	Add a GitHub Pages build and deployment workflow.
+* [ ]	Enable GitHub Pages with the GitHub Actions source and verify the live deployment.
 * [ ]	Expand the interactive space environment.
 * [ ]	Explore additional AI-powered features.
 
