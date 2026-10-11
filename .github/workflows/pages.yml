@@ -1,0 +1,84 @@
+name: Publish COSMOSIM Web
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build browser version
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p _site
+          cp static/index.html _site/index.html
+          cp static/interstellar-flight.js _site/interstellar-flight.js
+
+          # GitHub Pages is static hosting, so replace the Flask API request
+          # with the existing in-browser command parser.
+          python3 - <<'PY'
+          from pathlib import Path
+
+          page = Path("_site/index.html")
+          html = page.read_text(encoding="utf-8")
+          start_marker = "$('commandForm').addEventListener('submit',async e=>{"
+          end_marker = "$('voice').onclick="
+          start = html.find(start_marker)
+          end = html.find(end_marker, start)
+          if start < 0 or end < 0:
+              raise SystemExit("Could not find the COSMOSIM command handler; refusing to publish an unpatched page.")
+          replacement = """$('commandForm').addEventListener('submit',async e=>{
+           e.preventDefault();
+           const text=$('command').value.trim();
+           if(!text)return;
+           $('message').textContent='Applying browser-only command…';
+           try{
+            executeLocalCommand(text);
+            $('message').textContent=document.getElementById('simControlMessage').textContent || 'Local simulation command applied.';
+           }catch(err){
+            $('message').textContent='Could not apply command: '+err.message;
+           }
+          });
+          """
+          html = html[:start] + replacement + html[end:]
+          injection = '<script type="module" src="./interstellar-flight.js"></script>\n'
+          if injection not in html:
+              html = html.replace("</body>", injection + "</body>", 1)
+          page.write_text(html, encoding="utf-8")
+          PY
+
+          touch _site/.nojekyll
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload website artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Publish website
+        id: deployment
+        uses: actions/deploy-pages@v4
