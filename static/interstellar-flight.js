@@ -454,8 +454,8 @@ body.interstellar-flight-active #simControls{display:none!important;}
 #interstellarPanelRoot #flightMessage{font-size:10px;line-height:1.4;color:#9feaff;margin-top:7px}
 #flightTouchPad{display:none;position:fixed;z-index:31;left:14px;bottom:14px;touch-action:none;user-select:none;text-align:center}
 #flightTouchPad button{width:54px;height:50px;margin:4px;padding:0;background:linear-gradient(145deg,#1a3761ee,#080f24ee);border:1px solid #72d9ff;color:#fff;border-radius:14px;font-size:21px;box-shadow:0 4px 18px #0008;touch-action:none}
-#flightDeckToggle{display:none;position:fixed;z-index:32;right:14px;bottom:14px;border:1px solid #6bdfff;border-radius:999px;padding:11px 15px;background:linear-gradient(135deg,#152e52f5,#231448f5);color:#f4fbff;font:700 12px system-ui;box-shadow:0 5px 20px #0009}
-@media(max-width:700px){#interstellarPanelRoot{max-height:40vh;right:8px;bottom:72px;width:min(330px,calc(100vw - 16px));}#interstellarPanelRoot .flightActions{grid-template-columns:repeat(3,minmax(0,1fr))}#flightTouchPad{left:7px;bottom:8px}#flightDeckToggle{right:8px;bottom:8px}}
+#flightDeckToggle{display:none;position:fixed;z-index:32;right:14px;top:78px;border:1px solid #6bdfff;border-radius:999px;padding:11px 15px;background:linear-gradient(135deg,#152e52f5,#231448f5);color:#f4fbff;font:700 12px system-ui;box-shadow:0 5px 20px #0009}
+@media(max-width:700px){#interstellarPanelRoot{max-height:40vh;right:8px;bottom:72px;width:min(330px,calc(100vw - 16px));}#interstellarPanelRoot .flightActions{grid-template-columns:repeat(3,minmax(0,1fr))}#flightTouchPad{left:7px;bottom:8px}#flightDeckToggle{right:8px;top:62px}}
 `;
 document.head.appendChild(style);
 
