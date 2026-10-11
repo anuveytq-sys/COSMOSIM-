@@ -230,8 +230,12 @@ function setFlightMessage(text) {
 }
 
 function buildFlightPanel() {
-  const panel = document.getElementById('simControls');
-  if (!panel || document.getElementById('interstellarPanel')) return;
+  // Keep Interstellar Flight controls in their own panel. Never replace the
+  // shared #simControls panel used by the other COSMOSIM simulations.
+  let panel = document.getElementById('interstellarPanelRoot');
+  if (panel) return panel;
+  panel = document.createElement('section');
+  panel.id = 'interstellarPanelRoot';
   panel.innerHTML = `
     <div id="interstellarPanel">
       <h3>🚀 INTERSTELLAR FLIGHT DECK</h3>
@@ -239,26 +243,39 @@ function buildFlightPanel() {
       <div class="flightRow"><b>Look</b><span>Arrow keys · drag mouse/touch to turn</span></div>
       <div class="flightRow"><b>Brake</b><span>Space · Q/E = roll</span></div>
       <div class="flightActions">
-        <button id="flightAddBH">＋ Black Hole</button>
-        <button id="flightAddWH">＋ Wormhole</button>
-        <button id="flightAddSolar">＋ Solar System</button>
+        <button id="flightAddBH" type="button">＋ Black Hole</button>
+        <button id="flightAddWH" type="button">＋ Wormhole</button>
+        <button id="flightAddSolar" type="button">＋ Solar System</button>
       </div>
-      <label>Navigate to</label>
+      <label for="flightTarget">Navigate to</label>
       <select id="flightTarget"><option>Free flight</option></select>
       <div class="flightActions">
-        <button id="flightGo">Go there</button>
-        <button id="flightReset" class="secondary">Reset flight</button>
+        <button id="flightGo" type="button">Go there</button>
+        <button id="flightReset" type="button" class="secondary">Reset flight</button>
       </div>
-      <div id="flightMessage">WASD to fly. Gravity, wormhole teleport and orbital motion are active.</div>
+      <div id="flightMessage">WASD to fly. Gravity, wormhole transit and orbital motion are active.</div>
     </div>`;
-  panel.style.maxHeight = '46vh';
-  panel.style.width = 'min(360px, calc(100vw - 24px))';
-  document.getElementById('flightAddBH').onclick = () => { const b = addBody('blackhole'); placeBody(b, shipState.position.clone().add(new THREE.Vector3(8, 0, -24).applyEuler(ship.rotation))); updateTargetOptions(); setFlightMessage('Black hole added ahead. Its gravitational pull is active.'); };
-  document.getElementById('flightAddWH').onclick = () => { const w = addBody('wormhole'); placeBody(w, shipState.position.clone().add(new THREE.Vector3(-5, 0, -28).applyEuler(ship.rotation))); updateTargetOptions(); setFlightMessage('Wormhole added ahead. Its linked exit is 28 scene units beyond the mouth.'); };
-  document.getElementById('flightAddSolar').onclick = () => { const s = addBody('solar'); placeBody(s, shipState.position.clone().add(new THREE.Vector3(5, 0, -38).applyEuler(ship.rotation))); updateTargetOptions(); setFlightMessage('Solar system added. Select a planet system target and fly manually.'); };
+  document.body.appendChild(panel);
+
+  document.getElementById('flightAddBH').onclick = () => {
+    const b = addBody('blackhole');
+    placeBody(b, shipState.position.clone().add(new THREE.Vector3(8, 0, -24).applyEuler(ship.rotation)));
+    updateTargetOptions(); setFlightMessage('Black hole added ahead. Its gravitational pull is active.');
+  };
+  document.getElementById('flightAddWH').onclick = () => {
+    const w = addBody('wormhole');
+    placeBody(w, shipState.position.clone().add(new THREE.Vector3(-5, 0, -28).applyEuler(ship.rotation)));
+    updateTargetOptions(); setFlightMessage('Wormhole added ahead. Its linked exit is 28 scene units beyond the mouth.');
+  };
+  document.getElementById('flightAddSolar').onclick = () => {
+    const solar = addBody('solar');
+    placeBody(solar, shipState.position.clone().add(new THREE.Vector3(5, 0, -38).applyEuler(ship.rotation)));
+    updateTargetOptions(); setFlightMessage('Solar system added. Select a planet system target and fly manually.');
+  };
   document.getElementById('flightGo').onclick = () => goToTarget(document.getElementById('flightTarget').value);
   document.getElementById('flightTarget').onchange = e => { targetName = e.target.value; };
   document.getElementById('flightReset').onclick = resetFlight;
+  return panel;
 }
 
 function resetFlight() {
@@ -270,12 +287,18 @@ function resetFlight() {
 }
 
 function showFlight(active) {
-  buildFlightPanel();
+  const panel = buildFlightPanel();
+  panel.style.display = active ? 'block' : 'none';
+  touchPad.style.display = active ? 'block' : 'none';
+  document.body.classList.toggle('interstellar-flight-active', active);
   flightCanvas.style.display = active ? 'block' : 'none';
   if (originalCanvas) originalCanvas.style.visibility = active ? 'hidden' : 'visible';
   if (active) {
     resetFlight();
     renderer.setSize(innerWidth, innerHeight);
+  } else {
+    keys.clear();
+    mouse.active = false;
   }
 }
 
@@ -306,6 +329,7 @@ flightCanvas.addEventListener('pointercancel', () => { mouse.active = false; });
 // Mobile drive buttons are added as a small overlay; they map to the same keyboard codes.
 const touchPad = document.createElement('div');
 touchPad.id = 'flightTouchPad';
+touchPad.style.display = 'none';
 touchPad.innerHTML = '<button data-key="KeyW">▲</button><div><button data-key="KeyA">◀</button><button data-key="KeyS">▼</button><button data-key="KeyD">▶</button></div>';
 document.body.appendChild(touchPad);
 for (const b of touchPad.querySelectorAll('button')) {
@@ -318,16 +342,18 @@ for (const b of touchPad.querySelectorAll('button')) {
 const style = document.createElement('style');
 style.textContent = `
 #interstellarFlightCanvas{cursor:crosshair}
-#interstellarPanel{font-size:11px}
-#interstellarPanel .flightRow{display:flex;justify-content:space-between;gap:10px;padding:4px 0;color:#b9c5e4}
-#interstellarPanel .flightRow span{color:#eef2ff;text-align:right}
-#interstellarPanel select{width:100%;background:#080b16;color:#fff;border:1px solid #414968;border-radius:9px;padding:9px}
-.flightActions{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-top:7px}
-.flightActions button{padding:8px 5px;font-size:10px}
-#flightMessage{font-size:10px;line-height:1.4;color:#9feaff;margin-top:7px}
-#flightTouchPad{display:none;position:fixed;z-index:90;left:14px;bottom:14px;touch-action:none;user-select:none;text-align:center}
+#interstellarPanelRoot{display:none;position:fixed;z-index:30;right:12px;bottom:12px;width:min(360px,calc(100vw - 24px));max-height:46vh;overflow:auto;padding:14px;border:1px solid #52618d88;border-radius:16px;background:linear-gradient(145deg,rgba(9,14,32,.96),rgba(4,7,18,.94));backdrop-filter:blur(12px);color:#eef2ff;font:11px system-ui,Arial}
+#interstellarPanelRoot h3{margin:0 0 8px;font-size:13px;letter-spacing:.5px}
+#interstellarPanelRoot label{display:block;margin:8px 0 4px;color:#b9c5e4}
+#interstellarPanelRoot .flightRow{display:flex;justify-content:space-between;gap:10px;padding:4px 0;color:#b9c5e4}
+#interstellarPanelRoot .flightRow span{color:#eef2ff;text-align:right}
+#interstellarPanelRoot select{width:100%;background:#080b16;color:#fff;border:1px solid #414968;border-radius:9px;padding:9px}
+#interstellarPanelRoot button{padding:8px 5px;font-size:10px;background:#172447;border:1px solid #52618d;color:#eef2ff;border-radius:8px}
+#interstellarPanelRoot .flightActions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin-top:7px}
+#interstellarPanelRoot #flightMessage{font-size:10px;line-height:1.4;color:#9feaff;margin-top:7px}
+#flightTouchPad{display:none;position:fixed;z-index:31;left:14px;bottom:14px;touch-action:none;user-select:none;text-align:center}
 #flightTouchPad button{width:46px;height:42px;margin:3px;padding:0;background:#101b36dd;border:1px solid #6074ad;color:#fff;border-radius:10px;font-size:18px}
-@media(max-width:700px){#flightTouchPad{display:block}.flightActions{grid-template-columns:1fr 1fr 1fr}#simControls{max-height:40vh!important}}
+@media(max-width:700px){#interstellarPanelRoot{max-height:40vh;right:8px;bottom:8px;width:min(330px,calc(100vw - 16px));}#interstellarPanelRoot .flightActions{grid-template-columns:repeat(3,minmax(0,1fr))}}
 `;
 document.head.appendChild(style);
 
