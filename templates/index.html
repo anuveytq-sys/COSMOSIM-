@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>COSMOSIM | Space Lab</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#03040c;color:#eef2ff;font-family:system-ui,Arial;overflow:hidden}
+#space{position:fixed;inset:0;z-index:0}
+.panel{position:fixed;z-index:2;background:#0b1020d9;border:1px solid #39415d88;
+border-radius:16px;padding:14px;backdrop-filter:blur(12px)}
+#top{top:12px;left:12px;right:12px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.brand{font-weight:900;letter-spacing:2px;font-size:19px}
+.sub{color:#a4b0d0;font-size:11px}
+#controls{left:12px;bottom:12px;width:min(355px,calc(100vw - 24px));max-height:55vh;overflow:auto}
+h3{margin:0 0 10px;font-size:14px}
+label{display:block;color:#bdc7e5;font-size:12px;margin:10px 0 4px}
+input[type=range]{width:100%;accent-color:#8b7bff}
+input[type=text]{width:100%;background:#080b16;color:white;border:1px solid #414968;border-radius:10px;padding:11px}
+button{background:#7867ff;color:white;border:0;border-radius:10px;padding:10px 12px;font-weight:700;cursor:pointer}
+button.secondary{background:#222b43}
+.actions{display:flex;gap:7px;margin-top:8px}
+.actions button{flex:1}
+#message{font-size:12px;line-height:1.5;color:#c5ccef;margin-top:9px}
+#stats{right:12px;top:82px;width:155px;font-size:12px;line-height:1.9}
+.stat{display:flex;justify-content:space-between;gap:8px}
+.stat span{color:#9da9ce}
+#hint{position:fixed;z-index:1;right:16px;bottom:18px;color:#8794b8;font-size:11px;text-align:right}
+@media(max-width:520px){#stats{top:79px;width:142px;padding:9px;font-size:11px}.brand{font-size:16px}#controls{max-height:48vh}.sub{max-width:150px}}
+</style>
+</head>
+<body>
+<div id="space"></div>
+<div id="top" class="panel">
+  <div><div class="brand">✦ COSMOSIM</div><div class="sub">INTERACTIVE SPACE LAB · 3D EXPERIMENT</div></div>
+  <button id="pause" class="secondary">Ⅱ Pause</button>
+</div>
+<div id="stats" class="panel">
+  <h3>LIVE READOUT</h3>
+  <div class="stat"><span>Object</span><b>Black hole</b></div>
+  <div class="stat"><span>Mass</span><b id="massOut">10 M☉</b></div>
+  <div class="stat"><span>Disk</span><b id="diskOut">Active</b></div>
+  <div class="stat"><span>Orbit</span><b id="speedOut">1.0×</b></div>
+  <div class="sub">Illustrative model, not a full physics solver.</div>
+</div>
+<div id="controls" class="panel">
+  <h3>SPACE COMMAND</h3>
+  <form id="commandForm">
+    <input id="command" type="text" placeholder='Try: "Make it 20 solar masses"' autocomplete="off">
+    <div class="actions">
+      <button type="submit">Run command ↗</button>
+      <button type="button" id="voice" class="secondary">🎙 Speak</button>
+    </div>
+  </form>
+  <div id="message">Drag to rotate · pinch or scroll to zoom. Enter a command to change the scene.</div>
+  <label>Black-hole mass: <b id="massLabel">10</b> solar masses</label>
+  <input id="mass" type="range" min="3" max="50" value="10">
+  <label>Orbiting object distance: <b id="distanceLabel">7</b></label>
+  <input id="distance" type="range" min="4" max="20" value="7">
+  <label>Orbital speed: <b id="speedLabel">1.0</b>×</label>
+  <input id="speed" type="range" min="0.2" max="3" step="0.1" value="1">
+  <div class="actions">
+    <button type="button" id="disk" class="secondary">Toggle disk</button>
+    <button type="button" id="reset" class="secondary">Reset view</button>
+  </div>
+</div>
+<div id="hint">Drag to explore<br>Scroll / pinch to zoom</div>
+
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+
+const root=document.getElementById('space');
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x03040c);
+scene.fog=new THREE.FogExp2(0x03040c,0.006);
+const camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,0.1,1000);
+camera.position.set(0,11,25);
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:false});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+root.appendChild(renderer.domElement);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true;controls.minDistance=7;controls.maxDistance=65;
+scene.add(new THREE.AmbientLight(0x667799,1.2));
+const light=new THREE.PointLight(0xffa05a,180,70);scene.add(light);
+
+const hole=new THREE.Mesh(new THREE.SphereGeometry(2.0,64,48),
+ new THREE.MeshBasicMaterial({color:0x000000}));
+scene.add(hole);
+const glow=new THREE.Mesh(new THREE.SphereGeometry(2.1,48,32),
+ new THREE.MeshBasicMaterial({color:0x25113f,transparent:true,opacity:.25,side:THREE.BackSide}));
+scene.add(glow);
+
+const diskGroup=new THREE.Group();diskGroup.rotation.x=1.08;scene.add(diskGroup);
+const diskMaterials=[
+ new THREE.MeshBasicMaterial({color:0xffd18a,transparent:true,opacity:.8,side:THREE.DoubleSide}),
+ new THREE.MeshBasicMaterial({color:0xff702e,transparent:true,opacity:.42,side:THREE.DoubleSide}),
+ new THREE.MeshBasicMaterial({color:0x7f42ff,transparent:true,opacity:.18,side:THREE.DoubleSide})
+];
+const rings=[];
+for(let i=0;i<3;i++){
+ const ring=new THREE.Mesh(new THREE.RingGeometry(2.35+i*.45,2.65+i*.45,160),
+ diskMaterials[i]);
+ ring.rotation.x=0.035*i;diskGroup.add(ring);rings.push(ring);
+}
+const particleCount=2400,positions=new Float32Array(particleCount*3),radii=[],angles=[],ys=[];
+for(let i=0;i<particleCount;i++){
+ const r=2.25+Math.random()*5.6,a=Math.random()*Math.PI*2;
+ radii.push(r);angles.push(a);ys.push((Math.random()-.5)*.18);
+ positions[i*3]=Math.cos(a)*r;positions[i*3+1]=Math.sin(a)*r;positions[i*3+2]=ys[i];
+}
+const pGeo=new THREE.BufferGeometry();pGeo.setAttribute('position',new THREE.BufferAttribute(positions,3));
+const pMat=new THREE.PointsMaterial({color:0xffa45b,size:.045,transparent:true,opacity:.8,blending:THREE.AdditiveBlending,depthWrite:false});
+const particles=new THREE.Points(pGeo,pMat);diskGroup.add(particles);
+
+const starGeo=new THREE.BufferGeometry(),starPos=[];
+for(let i=0;i<5000;i++){
+ const r=100+Math.random()*350,t=Math.random()*Math.PI*2;
+ const u=Math.acos(2*Math.random()-1);
+ starPos.push(r*Math.sin(u)*Math.cos(t),r*Math.cos(u),r*Math.sin(u)*Math.sin(t));
+}
+starGeo.setAttribute('position',new THREE.Float32BufferAttribute(starPos,3));
+scene.add(new THREE.Points(starGeo,new THREE.PointsMaterial({color:0xa9c6ff,size:.7,sizeAttenuation:false})));
+
+const star=new THREE.Mesh(new THREE.SphereGeometry(.42,24,16),
+ new THREE.MeshStandardMaterial({color:0x9fdcff,emissive:0x2366ff,emissiveIntensity:2}));
+scene.add(star);
+const starLight=new THREE.PointLight(0x5d9cff,25,18);scene.add(starLight);
+
+let mass=10,distance=7,speed=1,diskOn=true,paused=false,time=0;
+const $=id=>document.getElementById(id);
+function updateLabels(){
+ $('massLabel').textContent=mass;$('massOut').textContent=mass+' M☉';
+ $('distanceLabel').textContent=distance;$('speedLabel').textContent=speed.toFixed(1);
+ $('speedOut').textContent=speed.toFixed(1)+'×';$('diskOut').textContent=diskOn?'Active':'Hidden';
+ hole.scale.setScalar(.75+mass/40);
+ glow.scale.setScalar(.8+mass/45);
+ diskGroup.visible=diskOn;
+}
+function applySettings(d){
+ if(Number.isFinite(Number(d.mass)))mass=Math.max(3,Math.min(50,Number(d.mass)));
+ if(Number.isFinite(Number(d.distance)))distance=Math.max(4,Math.min(20,Number(d.distance)));
+ if(Number.isFinite(Number(d.speed)))speed=Math.max(.2,Math.min(3,Number(d.speed)));
+ if(typeof d.disk==='boolean')diskOn=d.disk;
+ $('mass').value=mass;$('distance').value=distance;$('speed').value=speed;
+ updateLabels();
+ if(d.description)$('message').textContent=d.description;
+}
+$('mass').addEventListener('input',e=>{mass=+e.target.value;updateLabels()});
+$('distance').addEventListener('input',e=>{distance=+e.target.value;updateLabels()});
+$('speed').addEventListener('input',e=>{speed=+e.target.value;updateLabels()});
+$('disk').onclick=()=>{diskOn=!diskOn;updateLabels()};
+$('pause').onclick=()=>{paused=!paused;$('pause').textContent=paused?'▶ Resume':'Ⅱ Pause'};
+$('reset').onclick=()=>{camera.position.set(0,11,25);controls.target.set(0,0,0);controls.update()};
+$('commandForm').addEventListener('submit',async e=>{
+ e.preventDefault();const text=$('command').value.trim();if(!text)return;
+ $('message').textContent='Interpreting your command…';
+ try{
+  const res=await fetch('/api/command',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({command:text})});
+  const data=await res.json();if(!res.ok)throw Error(data.error||'Command failed');
+  applySettings(data);
+ }catch(err){$('message').textContent='Could not run command: '+err.message}
+});
+$('voice').onclick=()=>{
+ const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(!SR){$('message').textContent='Speech recognition is not supported in this browser. Type your command instead.';return}
+ const rec=new SR();rec.lang='en-IN';rec.interimResults=false;
+ $('message').textContent='Listening… say your space command.';
+ rec.onresult=e=>{$('command').value=e.results[0][0].transcript;$('commandForm').requestSubmit()};
+ rec.onerror=()=>{$('message').textContent='Voice input failed. Check microphone permission or type your command.'};
+ rec.start();
+};
+updateLabels();
+function animate(){
+ requestAnimationFrame(animate);
+ if(!paused){
+  time+=.01;
+  diskGroup.rotation.y+=.0015;
+  for(let i=0;i<particleCount;i++){
+   angles[i]+=(.0025/Math.sqrt(radii[i]))*(speed);
+   positions[i*3]=Math.cos(angles[i])*radii[i];
+   positions[i*3+1]=Math.sin(angles[i])*radii[i];
+  }
+  pGeo.attributes.position.needsUpdate=true;
+  const a=time*speed;
+  star.position.set(Math.cos(a)*distance,Math.sin(a*.7)*.4,Math.sin(a)*distance);
+  starLight.position.copy(star.position);
+  glow.material.opacity=.16+.08*Math.sin(time*2);
+  rings.forEach((r,i)=>{r.rotation.z+=(i+1)*.0004});
+ }
+ controls.update();renderer.render(scene,camera);
+}
+animate();
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+</script>
+</body>
+</html>

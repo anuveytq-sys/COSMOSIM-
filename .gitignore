@@ -1,0 +1,7 @@
+*.backup
+*.before-*
+*.broken-menu-backup
+*.manual-backup
+*.menu-fixed
+*.working-backup
+*.pre-*
