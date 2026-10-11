@@ -288,9 +288,13 @@ function resetFlight() {
 
 function showFlight(active) {
   const panel = buildFlightPanel();
+  document.body.classList.toggle('interstellar-flight-active', active);
   panel.style.display = active ? 'block' : 'none';
   touchPad.style.display = active ? 'block' : 'none';
-  document.body.classList.toggle('interstellar-flight-active', active);
+  // The shared command deck belongs to the other simulations; hide it only
+  // while Interstellar Flight is selected so its own deck is the only one shown.
+  const sharedControls = document.getElementById('simControls');
+  if (active && sharedControls) sharedControls.style.display = 'none';
   flightCanvas.style.display = active ? 'block' : 'none';
   if (originalCanvas) originalCanvas.style.visibility = active ? 'hidden' : 'visible';
   if (active) {
@@ -305,7 +309,8 @@ function showFlight(active) {
 // Menu selection happens in the original module. Capture clicks in the menu so the
 // isolated flight renderer is enabled only for Interstellar Flight.
 document.querySelectorAll('#spaceMenu .simChoice').forEach(btn => {
-  btn.addEventListener('click', () => showFlight(btn.dataset.sim === 'interstellar'), true);
+  // Run after COSMOSIM's own chooseSim handler, which updates its shared panels.
+  btn.addEventListener('click', () => showFlight(btn.dataset.sim === 'interstellar'));
 });
 
 window.addEventListener('keydown', e => {
@@ -342,6 +347,9 @@ for (const b of touchPad.querySelectorAll('button')) {
 const style = document.createElement('style');
 style.textContent = `
 #interstellarFlightCanvas{cursor:crosshair}
+body:not(.interstellar-flight-active) #interstellarPanelRoot{display:none!important;}
+body:not(.interstellar-flight-active) #flightTouchPad{display:none!important;}
+body.interstellar-flight-active #simControls{display:none!important;}
 #interstellarPanelRoot{display:none;position:fixed;z-index:30;right:12px;bottom:12px;width:min(360px,calc(100vw - 24px));max-height:46vh;overflow:auto;padding:14px;border:1px solid #52618d88;border-radius:16px;background:linear-gradient(145deg,rgba(9,14,32,.96),rgba(4,7,18,.94));backdrop-filter:blur(12px);color:#eef2ff;font:11px system-ui,Arial}
 #interstellarPanelRoot h3{margin:0 0 8px;font-size:13px;letter-spacing:.5px}
 #interstellarPanelRoot label{display:block;margin:8px 0 4px;color:#b9c5e4}
