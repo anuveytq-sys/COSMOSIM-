@@ -254,7 +254,7 @@
     }
     const tunnelMaterial=new THREE.MeshBasicMaterial({color:0x050711,side:THREE.DoubleSide,transparent:true,opacity:.72,depthWrite:false});
     const tunnel=new THREE.Mesh(new THREE.CylinderGeometry(holeRadius*.83,holeRadius*.83,radius*1.94,48,1,true),tunnelMaterial);
-    tunnel.position.copy(targetGroup.position);
+    tunnel.position.set(0,0,0);
     tunnel.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),axis);
     targetGroup.add(tunnel);damageMarks.push(tunnel);
     // Bright rims sit at both openings; the center stays open so distant space can be seen.
@@ -268,7 +268,7 @@
       addEffect(rim,2.0,(o,t)=>{o.scale.setScalar(1+t*.28);o.material.emissiveIntensity=Math.max(.15,1.4-t*.55);});
     }
     const glow=new THREE.Mesh(new THREE.CylinderGeometry(holeRadius*.91,holeRadius*.91,radius*1.9,48,1,true),new THREE.MeshBasicMaterial({color:targetType==='Mars'?0xff4c20:0x51cfff,transparent:true,opacity:.45,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));
-    glow.position.copy(targetGroup.position);glow.quaternion.copy(tunnel.quaternion);
+    glow.position.set(0,0,0);glow.quaternion.copy(tunnel.quaternion);
     addEffect(glow,1.7,(o,t)=>{o.material.opacity=Math.max(0,.45*(1-t/1.7));});
   }
   function addSignatureAttack(kind,power,hitPoint,worldNormal){
