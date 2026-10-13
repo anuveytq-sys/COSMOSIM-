@@ -963,7 +963,35 @@ function baseVisible(v){
  orbiters.forEach(o=>{o.mesh.visible=v;o.light.visible=v;if(o.ring)o.ring.visible=v;});
  galaxies.forEach(g=>g.visible=v);
 }
+function showDestructionFallback(){
+ let root=document.getElementById("destructionFallback");
+ if(!root){
+  root=document.createElement("div");root.id="destructionFallback";
+  root.style.cssText="position:fixed;inset:0;z-index:100;background:radial-gradient(ellipse,#14234b,#030611 75%);color:#eef3ff;font:14px system-ui;padding:72px 12px 16px;overflow:auto";
+  root.innerHTML='<button id="dfExit" style="position:fixed;right:12px;top:12px;padding:10px;border-radius:12px">← Exit Lab</button><h2 style="text-align:center">🌌 DESTRUCTION LAB</h2><p id="dfStatus" style="text-align:center">Fallback controls active — the 3D module did not load.</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:12px;max-width:900px;margin:auto"><section style="padding:12px;background:#081329;border:1px solid #5c70b8;border-radius:14px"><h3>📍 Add object</h3><div id="dfObjects" style="display:grid;grid-template-columns:1fr 1fr;gap:6px"></div><p id="dfObject" style="font-size:24px;text-align:center">🌍 Earth</p><button id="dfRemove">Remove object</button> <button id="dfRestore">Restore</button></section><section style="padding:12px;background:#081329;border:1px solid #5c70b8;border-radius:14px"><h3>⚔️ Attackers</h3><div id="dfAttacks" style="display:grid;grid-template-columns:1fr 1fr;gap:6px"></div><label>Strength <b id="dfStrengthText">2/5</b></label><input id="dfStrength" type="range" min="1" max="5" value="2" style="width:100%"><p>Integrity: <b id="dfHpText">100%</b></p><div style="height:9px;background:#263451;border-radius:9px;overflow:hidden"><div id="dfHp" style="height:100%;width:100%;background:#55e4a2"></div></div><button id="dfLaunch" style="margin-top:10px;width:100%">▶ Launch attack</button></section></div>';
+  document.body.appendChild(root);
+  const objs=[["Earth","🌍"],["Moon","🌕"],["Mars","🔴"],["Saturn","🪐"],["Sun","☀️"],["Black Hole","🕳️"],["Wormhole","🌀"],["Galaxy","🌌"]];
+  const ats=["Alien assault","Asteroid barrage","Energy beam","Gravity pulse","Stellar shockwave","Antimatter pulse"];
+  let name="Earth",hp=100,removed=false,attack="Alien assault";
+  const draw=()=>{root.querySelector("#dfObject").textContent=(objs.find(x=>x[0]===name)?.[1]||"🌍")+" "+name+(removed?" (removed)":"");root.querySelector("#dfHpText").textContent=hp+"%";root.querySelector("#dfHp").style.width=hp+"%";root.querySelector("#dfStrengthText").textContent=root.querySelector("#dfStrength").value+"/5";};
+  objs.forEach(([n,icon])=>{const b=document.createElement("button");b.textContent=icon+" "+n;b.style.cssText="padding:8px 4px;font-size:12px";b.onclick=()=>{name=n;hp=100;removed=false;draw();};root.querySelector("#dfObjects").appendChild(b);});
+  ats.forEach(n=>{const b=document.createElement("button");b.textContent=n;b.style.cssText="padding:8px 4px;font-size:11px";b.onclick=()=>{attack=n;root.querySelector("#dfStatus").textContent="Selected attacker: "+attack;};root.querySelector("#dfAttacks").appendChild(b);});
+  root.querySelector("#dfStrength").oninput=draw;
+  root.querySelector("#dfLaunch").onclick=()=>{if(removed){root.querySelector("#dfStatus").textContent="Restore an object before launching an attack.";return;}const power=+root.querySelector("#dfStrength").value;hp=Math.max(0,hp-power*8);if(hp===0)removed=true;root.querySelector("#dfStatus").textContent=attack+" hit "+name+" at strength "+power+"/5.";draw();};
+  root.querySelector("#dfRemove").onclick=()=>{removed=true;draw();};
+  root.querySelector("#dfRestore").onclick=()=>{hp=100;removed=false;draw();};
+  root.querySelector("#dfExit").onclick=()=>{root.remove();document.body.classList.remove("hud-hidden");chooseSim("blackhole");};
+  draw();
+ }
+ root.style.display="block";
+}
 function chooseSim(id){
+ if(id==="destruction"){
+  menuEl.classList.remove("open");
+  if(window.COSMOSIMDestructionOpen){window.COSMOSIMDestructionOpen();}
+  else {showDestructionFallback();}
+  return;
+ }
  sx.active=id;sx.t=0;menuEl.classList.remove("open");
  // Start each scene with its information and command deck visible; the viewer can hide them any time.
  document.body.classList.remove("hud-hidden");
