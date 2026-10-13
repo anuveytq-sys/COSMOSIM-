@@ -206,6 +206,17 @@
       if(active){e.preventDefault();e.stopImmediatePropagation();exitMode();setTimeout(()=>b.click(),0);}
     },true);
   }
+  // Expose a stable entry point for the main simulator menu as well as the capture listener.
+  window.COSMOSIMDestructionOpen = async function(){
+    try { if(!booted) await setupThree(); enterMode(); }
+    catch(err) {
+      console.error('Destruction Lab startup failed',err);
+      if(canvasHost && objectPanel) {
+        enterMode();
+        if(statusEl) statusEl.textContent='3D engine failed to start: '+(err&&err.message?err.message:String(err))+'. The control panels remain available; check your connection and reload.';
+      }
+    }
+  };
   function onReady(){attachMenu();}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',onReady);else onReady();
 })();
