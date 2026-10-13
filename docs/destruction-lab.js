@@ -151,14 +151,22 @@
   }
   async function setupThree(){
     if(booted)return;booted=true;
-    THREE=await import(THREE_URL);
-    scene=new THREE.Scene();scene.background=new THREE.Color(0x030611);scene.fog=new THREE.FogExp2(0x030611,.006);
-    camera=new THREE.PerspectiveCamera(56,innerWidth/innerHeight,.1,900);camera.position.set(0,4.8,13);
-    renderer=new THREE.WebGLRenderer({antialias:true,alpha:false});renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.3;canvasHost.appendChild(renderer.domElement);
-    const Controls=await import('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js');orbit=new Controls.OrbitControls(camera,renderer.domElement);orbit.enableDamping=true;orbit.minDistance=5;orbit.maxDistance=38;orbit.target.set(0,0,0);
-    scene.add(new THREE.AmbientLight(0x8396c4,1.25));const key=new THREE.PointLight(0xffd8a0,140,60);key.position.set(-7,8,8);scene.add(key);const fill=new THREE.PointLight(0x3c75ff,55,45);fill.position.set(7,-3,-8);scene.add(fill);
-    const starGeo=new THREE.BufferGeometry(),pos=[];for(let i=0;i<5000;i++){const r=70+Math.random()*220,a=Math.random()*Math.PI*2,b=Math.acos(2*Math.random()-1);pos.push(r*Math.sin(b)*Math.cos(a),r*Math.cos(b),r*Math.sin(b)*Math.sin(a));}starGeo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));scene.add(new THREE.Points(starGeo,new THREE.PointsMaterial({color:0xc4d6ff,size:1.1,sizeAttenuation:false})));
-    makeUI();chooseObject('Earth');window.addEventListener('resize',resize);loop=animate;requestAnimationFrame(loop);
+    // Build the controls first so a WebGL/CDN failure never leaves a blank space screen.
+    makeUI();
+    try{
+      THREE=await import(THREE_URL);
+      scene=new THREE.Scene();scene.background=new THREE.Color(0x030611);scene.fog=new THREE.FogExp2(0x030611,.006);
+      camera=new THREE.PerspectiveCamera(56,innerWidth/innerHeight,.1,900);camera.position.set(0,4.8,13);
+      renderer=new THREE.WebGLRenderer({antialias:true,alpha:false});renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.3;canvasHost.appendChild(renderer.domElement);
+      const Controls=await import('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js');orbit=new Controls.OrbitControls(camera,renderer.domElement);orbit.enableDamping=true;orbit.minDistance=5;orbit.maxDistance=38;orbit.target.set(0,0,0);
+      scene.add(new THREE.AmbientLight(0x8396c4,1.25));const key=new THREE.PointLight(0xffd8a0,140,60);key.position.set(-7,8,8);scene.add(key);const fill=new THREE.PointLight(0x3c75ff,55,45);fill.position.set(7,-3,-8);scene.add(fill);
+      const starGeo=new THREE.BufferGeometry(),pos=[];for(let i=0;i<5000;i++){const r=70+Math.random()*220,a=Math.random()*Math.PI*2,b=Math.acos(2*Math.random()-1);pos.push(r*Math.sin(b)*Math.cos(a),r*Math.cos(b),r*Math.sin(b)*Math.sin(a));}starGeo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));scene.add(new THREE.Points(starGeo,new THREE.PointsMaterial({color:0xc4d6ff,size:1.1,sizeAttenuation:false})));
+      chooseObject('Earth');window.addEventListener('resize',resize);loop=animate;requestAnimationFrame(loop);
+    }catch(err){
+      console.error('COSMOSIM Destruction Lab failed to initialise:',err);
+      if(statusEl)statusEl.textContent='3D engine failed to start: '+(err&&err.message?err.message:String(err))+'. Check internet access, then reload the page.';
+      throw err;
+    }
   }
   function resize(){if(!renderer||!camera)return;camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);}
   function animate(now){
@@ -193,7 +201,7 @@
       const b=e.target.closest('.simChoice');if(!b)return;
       if(b.dataset.sim==='destruction'){
         e.preventDefault();e.stopImmediatePropagation();
-        if(!booted){await setupThree();}enterMode();return;
+        try{if(!booted){await setupThree();}enterMode();}catch(err){if(canvasHost&&objectPanel){enterMode();if(statusEl)statusEl.textContent='The control panels loaded, but the 3D engine failed: '+(err&&err.message?err.message:String(err))+'. Check connection and reload.';}else{console.error(err);}}return;
       }
       if(active){e.preventDefault();e.stopImmediatePropagation();exitMode();setTimeout(()=>b.click(),0);}
     },true);
