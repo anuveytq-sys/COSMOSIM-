@@ -29,6 +29,7 @@ jobs:
           cp static/index.html _site/index.html
           cp static/interstellar-flight.js _site/interstellar-flight.js
           cp docs/destruction-lab.js _site/destruction-lab.js
+          cp docs/destruction-object-effects.js _site/destruction-object-effects.js
 
           # GitHub Pages is static hosting, so replace the Flask API request
           # with the existing in-browser command parser.
@@ -63,6 +64,9 @@ jobs:
           destruction = '<script type="module" src="./destruction-lab.js?v=destruction-lab-20261013-throughhole-open2"></script>\\n'
           if destruction not in html:
               html = html.replace("</body>", destruction + "</body>", 1)
+          effects = '<script type="module" src="./destruction-object-effects.js?v=20261013-object-fx1"></script>\\n'
+          if effects not in html:
+              html = html.replace("</body>", effects + "</body>", 1)
           page.write_text(html, encoding="utf-8")
           PY
 
