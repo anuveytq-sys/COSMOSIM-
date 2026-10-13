@@ -5,7 +5,7 @@
   window.COSMOSIMDestructionReady = false;
   let THREE, renderer, scene, camera, orbit, targetGroup, targetMesh, targetType = 'Earth';
   let hp = 100, maxHp = 100, attackerLevel = 2, attackKind = 'alien', attackTimer = 0;
-  let effects = [], debris = [], satellites = [], damageMarks = [], finalDestruction = null, starField = null, nebulaField = null, objectPanelOpen = true, attackPanelOpen = true, statusPanelOpen = true, impactSequence = 0;
+  let effects = [], debris = [], satellites = [], damageMarks = [], finalDestruction = null, starField = null, nebulaField = null, objectPanelOpen = true, attackPanelOpen = true, statusPanelOpen = true, impactSequence = 0, impactNormalForAttack = null;
   let objectPanel, attackPanel, statusEl, healthEl, targetNameEl, attackNameEl, canvasHost, loop;
   const $ = id => document.getElementById(id);
   const objectOptions = [
@@ -19,14 +19,14 @@
     ['Galaxy','🌌','A spiral galaxy with a bright core']
   ];
   const attacks = {
-    Earth:[['alien','👽 Alien assault',2],['nuke','☢️ Nuclear strike',3],['moon','🌕 Moon impact',4],['asteroids','☄️ Asteroid barrage',2],['beam','⚡ Orbital energy beam',3]],
-    Moon:[['alien','👽 Alien assault',2],['asteroids','☄️ Asteroid barrage',2],['nuke','☢️ Nuclear strike',3],['moon','🪨 Heavy impactor',3]],
-    Mars:[['alien','👽 Alien assault',2],['nuke','☢️ Nuclear strike',3],['asteroids','☄️ Asteroid barrage',2],['beam','⚡ Orbital energy beam',3]],
-    Saturn:[['alien','👽 Fleet bombardment',3],['asteroids','☄️ Asteroid barrage',2],['supernova','💥 Stellar shockwave',4],['beam','⚡ Orbital energy beam',3]],
-    Sun:[['alien','👽 Heavy alien fleet',3],['antimatter','✨ Antimatter pulse',4],['supernova','💥 Supernova shockwave',5],['blackpulse','🕳️ Gravity pulse',3]],
-    'Black Hole':[['alien','👽 Heavy alien fleet',3],['antimatter','✨ Antimatter pulse',4],['supernova','💥 Stellar shockwave',3],['blackpulse','🕳️ Gravity pulse',5]],
-    Wormhole:[['alien','👽 Fleet destabilizer',2],['antimatter','✨ Antimatter pulse',4],['blackpulse','🕳️ Gravity pulse',5],['beam','⚡ Energy beam',3]],
-    Galaxy:[['alien','👽 Galactic armada',4],['antimatter','✨ Antimatter pulse',4],['supernova','💥 Supernova shockwave',5],['blackpulse','🕳️ Gravity pulse',5]]
+    Earth:[['alien','👽 Alien assault',2],['nuke','☢️ Nuclear strike',3],['moon','🌕 Moon impact',4],['asteroids','☄️ Asteroid barrage',2],['beam','⚡ Orbital energy beam',3],['throughhole','🛰️ Planet-piercer',5],['railgun','🚀 Railgun lance',4],['plasma','🔥 Plasma eruption',3],['drill','🌀 Tectonic drill',3],['ringburst','💫 Orbital ring burst',4]],
+    Moon:[['alien','👽 Alien assault',2],['asteroids','☄️ Asteroid barrage',2],['nuke','☢️ Nuclear strike',3],['moon','🪨 Heavy impactor',3],['throughhole','🛰️ Lunar bore-through',5],['railgun','🚀 Railgun lance',4],['drill','🌀 Deep-core drill',3],['shatter','💎 Crust shatterwave',4]],
+    Mars:[['alien','👽 Alien assault',2],['nuke','☢️ Nuclear strike',3],['asteroids','☄️ Asteroid barrage',2],['beam','⚡ Orbital energy beam',3],['throughhole','🛰️ Core piercer',5],['railgun','🚀 Magnetic railgun',4],['plasma','🔥 Plasma geyser',3],['shatter','🌋 Crust rupture',4]],
+    Saturn:[['alien','👽 Fleet bombardment',3],['asteroids','☄️ Asteroid barrage',2],['supernova','💥 Stellar shockwave',4],['beam','⚡ Orbital energy beam',3],['ringburst','💫 Ring-system blast',4],['plasma','🔥 Plasma lance',4],['gravitywell','🌀 Tidal gravity well',5],['throughhole','🛰️ Atmosphere piercer',5]],
+    Sun:[['alien','👽 Heavy alien fleet',3],['antimatter','✨ Antimatter pulse',4],['supernova','💥 Supernova shockwave',5],['blackpulse','🕳️ Gravity pulse',3],['plasma','🔥 Coronal plasma lance',4],['gravitywell','🌀 Tidal gravity well',5],['ringburst','💫 Magnetic flare rings',4],['rift','🟣 Space-time rupture',5]],
+    'Black Hole':[['alien','👽 Heavy alien fleet',3],['antimatter','✨ Antimatter pulse',4],['supernova','💥 Stellar shockwave',3],['blackpulse','🕳️ Gravity pulse',5],['gravitywell','🌀 Event-horizon surge',5],['rift','🟣 Space-time rupture',5],['ringburst','💫 Accretion ring burst',4],['railgun','🚀 Relativistic lance',4]],
+    Wormhole:[['alien','👽 Fleet destabilizer',2],['antimatter','✨ Antimatter pulse',4],['blackpulse','🕳️ Gravity pulse',5],['beam','⚡ Energy beam',3],['rift','🟣 Wormhole shear',5],['gravitywell','🌀 Tidal collapse',5],['ringburst','💫 Portal ring burst',4],['railgun','🚀 Dimensional lance',4]],
+    Galaxy:[['alien','👽 Galactic armada',4],['antimatter','✨ Antimatter pulse',4],['supernova','💥 Supernova shockwave',5],['blackpulse','🕳️ Gravity pulse',5],['rift','🟣 Galactic space-time tear',5],['gravitywell','🌀 Spiral tidal wave',5],['ringburst','💫 Spiral-arm burst',4],['plasma','🔥 Quasar jet',5]]
   };
   const opts = {Earth:{r:2.6,color:0x1c70c9,hp:100},Moon:{r:1.65,color:0xaaaeb7,hp:65},Mars:{r:2.15,color:0xb54c32,hp:80},Saturn:{r:2.5,color:0xc6a66c,hp:140},Sun:{r:3.0,color:0xff8a22,hp:220},'Black Hole':{r:2.25,color:0x03030b,hp:260},Wormhole:{r:2.35,color:0x7d54ff,hp:180},Galaxy:{r:3.6,color:0x8265df,hp:320}};
   function injectStyle(){
@@ -56,7 +56,7 @@
   function makeUI(){
     injectStyle();
     canvasHost=document.createElement('div');canvasHost.id='destructionStage';document.body.appendChild(canvasHost);
-    const top=document.createElement('div');top.id='dlTop';top.textContent='COSMOSIM · DESTRUCTION LAB';document.body.appendChild(top);
+    const top=document.createElement('div');top.id='dlTop';top.textContent='COSMOSIM';document.body.appendChild(top);
     const exit=document.createElement('button');exit.id='dlExit';exit.className='secondary';exit.textContent='← Exit Lab';exit.onclick=exitMode;document.body.appendChild(exit);
     objectPanel=document.createElement('section');objectPanel.id='dlObjects';objectPanel.className='dl-panel';objectPanel.innerHTML='<button class="dl-close" id="dlCloseObjects" aria-label="Hide object panel">×</button><h3>📍 OBJECT BAY</h3><div style="color:#9eadd5;margin-bottom:8px">Choose an object. It stays anchored at this fixed point.</div><div class="dl-grid" id="dlObjectChoices"></div><div class="dl-row"><button id="dlRemove" class="secondary">− Remove object</button><button id="dlRestore">↻ Restore</button></div>';
     attackPanel=document.createElement('section');attackPanel.id='dlAttackers';attackPanel.className='dl-panel';attackPanel.innerHTML='<button class="dl-close" id="dlCloseAttackers" aria-label="Hide attacker panel">×</button><h3>⚔️ DESTRUCTION SYSTEMS</h3><div style="color:#9eadd5;margin-bottom:8px">Attacker strength controls damage and impact effects.</div><div class="dl-grid" id="dlAttackChoices"></div><label>Attacker strength · <b id="dlStrengthLabel">2 / 5</b></label><input id="dlStrength" type="range" min="1" max="5" value="2"><div class="dl-row"><button id="dlAttackNow">▶ Launch attack</button><button id="dlClear" class="secondary">Clear effects</button></div>';
@@ -231,6 +231,59 @@
       old.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose?.();});
     }
   }
+  function addThroughHole(power,normal,hitPoint,worldNormal){
+    if(!targetGroup||!targetMesh||!['Earth','Moon','Mars'].includes(targetType))return;
+    const radius=opts[targetType].r, holeRadius=radius*(.095+power*.027);
+    const geom=targetMesh.geometry, pos=geom?.attributes?.position;
+    if(pos){
+      const axis=normal.clone().normalize();
+      for(let i=0;i<pos.count;i++){
+        const v=new THREE.Vector3(pos.getX(i),pos.getY(i),pos.getZ(i)), rr=v.length();
+        if(!rr)continue;
+        const dir=v.clone().normalize(), along=Math.abs(dir.dot(axis));
+        const radialDistance=rr*Math.sqrt(Math.max(0,1-along*along));
+        const endCap=rr*along;
+        if(radialDistance<holeRadius*1.45 && endCap>radius*.35){
+          const fade=1-Math.min(1,radialDistance/(holeRadius*1.45));
+          v.addScaledVector(dir,-radius*(.08+power*.035)*fade);
+          pos.setXYZ(i,v.x,v.y,v.z);
+        }
+      }
+      pos.needsUpdate=true;geom.computeVertexNormals();geom.computeBoundingSphere();
+    }
+    const tunnel=new THREE.Mesh(new THREE.CylinderGeometry(holeRadius*.76,holeRadius*.76,radius*2.08,48,1,true),new THREE.MeshBasicMaterial({color:0x09070c,side:THREE.DoubleSide,transparent:true,opacity:.94,depthWrite:false}));
+    tunnel.position.copy(targetGroup.position);tunnel.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),normal.clone().normalize());
+    targetGroup.add(tunnel);damageMarks.push(tunnel);
+    const glow=new THREE.Mesh(new THREE.CylinderGeometry(holeRadius*.95,holeRadius*.95,radius*2.13,48,1,true),new THREE.MeshBasicMaterial({color:targetType==='Mars'?0xff5b27:0x62dfff,transparent:true,opacity:.75,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));
+    glow.position.copy(targetGroup.position);glow.quaternion.copy(tunnel.quaternion);
+    addEffect(glow,1.9,(o,t)=>{o.material.opacity=Math.max(0,.75*(1-t/1.9));o.scale.set(1,1,1);});
+    for(const sign of [-1,1]){
+      const end=targetGroup.localToWorld(normal.clone().multiplyScalar(radius*.93*sign));
+      const ring=new THREE.Mesh(new THREE.TorusGeometry(holeRadius*1.15,.045+power*.012,12,64),new THREE.MeshBasicMaterial({color:0xff9b56,transparent:true,opacity:.95,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));
+      ring.position.copy(end);ring.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),worldNormal.clone().multiplyScalar(sign));
+      addEffect(ring,1.65,(o,t)=>{o.scale.setScalar(1+t*(1.4+power*.25));o.material.opacity=Math.max(0,.95-t*.57);});
+    }
+  }
+  function addSignatureAttack(kind,power,hitPoint,worldNormal){
+    const colors={throughhole:0x63e8ff,railgun:0x6fe8ff,plasma:0xff5c24,drill:0xffd36c,shatter:0xb8c7ff,gravitywell:0x9a6bff,rift:0xe35bff,ringburst:0x76dcff};
+    const color=colors[kind]||0xffa45c, radius=opts[targetType].r;
+    if(kind==='throughhole'){addThroughHole(power,impactNormalForAttack,hitPoint,worldNormal);return;}
+    if(kind==='railgun'||kind==='drill'||kind==='plasma'){
+      const length=kind==='railgun'?radius*5.8:kind==='drill'?radius*4.6:radius*3.8;
+      const beam=new THREE.Mesh(new THREE.CylinderGeometry(kind==='drill'?.12:.055,kind==='drill'?.28:.16,length,24,1,true),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.92,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));
+      beam.position.copy(hitPoint).addScaledVector(worldNormal,length*.45);beam.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),worldNormal.clone().negate());
+      addEffect(beam,kind==='drill'?2.5:1.7,(o,t)=>{o.scale.set(kind==='drill'?1:1+t*.25,1,kind==='drill'?1:1+t*.25);o.material.opacity=Math.max(0,.92-t*.48);o.rotation.y+=kind==='drill'?.32:.025;});
+      const burst=new THREE.Mesh(new THREE.SphereGeometry(.25+power*.06,32,24),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.9,blending:THREE.AdditiveBlending,depthWrite:false}));
+      burst.position.copy(hitPoint);addEffect(burst,1.35,(o,t)=>{o.scale.setScalar(1+t*(3+power));o.material.opacity=Math.max(0,.9-t*.65);});
+    } else if(kind==='gravitywell'||kind==='rift'){
+      const rings=[];
+      for(let i=0;i<4;i++){const ring=new THREE.Mesh(new THREE.TorusGeometry(radius*(.35+i*.19),.025+power*.008,10,96),new THREE.MeshBasicMaterial({color:i%2?color:0x9ebcff,transparent:true,opacity:.8,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));ring.position.copy(hitPoint);ring.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),worldNormal);addEffect(ring,2.4,(o,t)=>{o.rotation.z+=kind==='rift'?.08:-.035;o.scale.setScalar(kind==='rift'?1+t*.65:1+t*.18);o.material.opacity=Math.max(0,.8-t*.3);});rings.push(ring);}
+      const pulse=new THREE.Mesh(new THREE.SphereGeometry(radius*.42,32,24),new THREE.MeshBasicMaterial({color,wireframe:true,transparent:true,opacity:.75,blending:THREE.AdditiveBlending,depthWrite:false}));pulse.position.copy(hitPoint);addEffect(pulse,2.2,(o,t)=>{o.scale.setScalar(1+t*(kind==='rift'?4:2.8));o.rotation.y+=.04;o.material.opacity=Math.max(0,.75-t*.32);});
+    } else if(kind==='ringburst'||kind==='shatter'){
+      for(let i=0;i<(kind==='shatter'?3:5);i++){const ring=new THREE.Mesh(new THREE.TorusGeometry(.3+i*.19,.035+power*.006,10,72),new THREE.MeshBasicMaterial({color:i%2?color:0xffbb6c,transparent:true,opacity:.92,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));ring.position.copy(hitPoint);ring.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),worldNormal);addEffect(ring,1.8+i*.12,(o,t)=>{o.scale.setScalar(1+t*(3+power));o.rotation.z+=kind==='shatter'?.11:.025;o.material.opacity=Math.max(0,.92-t*.5);});}
+      if(kind==='shatter')for(let i=0;i<18+power*5;i++){const shard=new THREE.Mesh(new THREE.TetrahedronGeometry(.06+Math.random()*.09),new THREE.MeshStandardMaterial({color:0x9eb9d8,emissive:0x203f70,emissiveIntensity:1}));shard.position.copy(hitPoint);shard.userData.v=worldNormal.clone().multiplyScalar(.7+Math.random()*power).add(new THREE.Vector3((Math.random()-.5)*power,(Math.random()-.5)*power,(Math.random()-.5)*power));addEffect(shard,2.2,(o,t)=>{o.position.addScaledVector(o.userData.v,.035);o.rotation.x+=.08;o.rotation.y+=.06;o.scale.setScalar(Math.max(.01,1-t/2.2));});}
+    }
+  }
   function beginFinalDestruction(){
     if(finalDestruction||!targetGroup)return;
     const duration=2.5,radius=opts[targetType].r;finalDestruction={age:0,duration,halves:[]};
@@ -258,6 +311,7 @@
     const surfaceRadius=targetMesh?.geometry?.parameters?.radius||opts[targetType].r;
     const hitPoint=targetGroup.localToWorld(impactNormal.clone().multiplyScalar(surfaceRadius));
     const worldNormal=impactNormal.clone().applyQuaternion(targetGroup.quaternion).normalize();
+    impactNormalForAttack=impactNormal.clone();
     addSurfaceDamage(power,impactNormal);
     const baseDamage={1:5,2:10,3:17,4:26,5:38}[power];const scale=opts[targetType].hp/100;
     const damage=Math.min(hp,Math.round(baseDamage*scale*(attackKind==='moon'||attackKind==='supernova'?1.25:1)));
@@ -275,6 +329,7 @@
     } else if(attackKind==='supernova'){
       const wave=new THREE.Mesh(new THREE.SphereGeometry(.5,48,32),new THREE.MeshBasicMaterial({color:0xffa04d,wireframe:true,transparent:true,opacity:.85,blending:THREE.AdditiveBlending}));wave.position.copy(hitPoint);addEffect(wave,2.2,(o,t)=>{o.scale.setScalar(1+t*(5+power));o.material.opacity=Math.max(0,.85-t*.38);});
     }
+    if(['throughhole','railgun','plasma','drill','shatter','gravitywell','rift','ringburst'].includes(attackKind))addSignatureAttack(attackKind,power,hitPoint,worldNormal);
     // Brief luminous impact ring and restrained fragments; no object translation.
     const impact=new THREE.Mesh(new THREE.SphereGeometry(.18+power*.035,32,24),new THREE.MeshBasicMaterial({color:0xffb85e,transparent:true,opacity:.95,blending:THREE.AdditiveBlending,depthWrite:false}));impact.position.copy(hitPoint);addEffect(impact,1.15,(o,t)=>{o.scale.setScalar(1+t*(4+power*1.5));o.material.opacity=Math.max(0,.95-t*.82);});
     const shock=new THREE.Mesh(new THREE.TorusGeometry(.25+power*.08,.035+power*.006,10,64),new THREE.MeshBasicMaterial({color:0xff8d5c,transparent:true,opacity:.95,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));shock.position.copy(hitPoint);shock.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),worldNormal);addEffect(shock,1.25,(o,t)=>{o.scale.setScalar(1+t*(3+power));o.material.opacity=Math.max(0,.95-t*.8);});
