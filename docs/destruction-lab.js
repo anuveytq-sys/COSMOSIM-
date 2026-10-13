@@ -233,36 +233,43 @@
   }
   function addThroughHole(power,normal,hitPoint,worldNormal){
     if(!targetGroup||!targetMesh||!['Earth','Moon','Mars','Saturn'].includes(targetType))return;
-    const radius=opts[targetType].r, holeRadius=radius*(.095+power*.027);
-    const geom=targetMesh.geometry, pos=geom?.attributes?.position;
-    if(pos){
-      const axis=normal.clone().normalize();
-      for(let i=0;i<pos.count;i++){
-        const v=new THREE.Vector3(pos.getX(i),pos.getY(i),pos.getZ(i)), rr=v.length();
-        if(!rr)continue;
-        const dir=v.clone().normalize(), along=Math.abs(dir.dot(axis));
-        const radialDistance=rr*Math.sqrt(Math.max(0,1-along*along));
-        const endCap=rr*along;
-        if(radialDistance<holeRadius*1.45 && endCap>radius*.35){
-          const fade=1-Math.min(1,radialDistance/(holeRadius*1.45));
-          v.addScaledVector(dir,-radius*(.08+power*.035)*fade);
-          pos.setXYZ(i,v.x,v.y,v.z);
-        }
+    const radius=targetMesh.geometry?.parameters?.radius||opts[targetType].r;
+    const holeRadius=radius*(.105+power*.027);
+    const axis=normal.clone().normalize();
+    const geom=targetMesh.geometry;
+    // Remove the actual sphere triangles around BOTH ends of the bore.
+    // With those faces gone, the starfield/background is genuinely visible through the planet.
+    if(geom?.attributes?.position&&geom.index){
+      const pos=geom.attributes.position, old=geom.index.array, kept=[];
+      const cosLimit=Math.cos(Math.asin(Math.min(.48,holeRadius/radius))*1.02);
+      for(let i=0;i<old.length;i+=3){
+        const ids=[old[i],old[i+1],old[i+2]];
+        const dirs=ids.map(id=>new THREE.Vector3(pos.getX(id),pos.getY(id),pos.getZ(id)).normalize());
+        const insideBothEnds=dirs.every(d=>Math.abs(d.dot(axis))>cosLimit);
+        if(!insideBothEnds)kept.push(ids[0],ids[1],ids[2]);
       }
-      pos.needsUpdate=true;geom.computeVertexNormals();geom.computeBoundingSphere();
+      geom.setIndex(kept);
+      // Keep a darkened, recessed inner tunnel, but never cap either opening.
+      geom.computeVertexNormals();geom.computeBoundingSphere();
     }
-    const tunnel=new THREE.Mesh(new THREE.CylinderGeometry(holeRadius*.76,holeRadius*.76,radius*2.08,48,1,true),new THREE.MeshBasicMaterial({color:0x09070c,side:THREE.DoubleSide,transparent:true,opacity:.94,depthWrite:false}));
-    tunnel.position.copy(targetGroup.position);tunnel.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),normal.clone().normalize());
+    const tunnelMaterial=new THREE.MeshBasicMaterial({color:0x050711,side:THREE.DoubleSide,transparent:true,opacity:.72,depthWrite:false});
+    const tunnel=new THREE.Mesh(new THREE.CylinderGeometry(holeRadius*.83,holeRadius*.83,radius*1.94,48,1,true),tunnelMaterial);
+    tunnel.position.copy(targetGroup.position);
+    tunnel.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),axis);
     targetGroup.add(tunnel);damageMarks.push(tunnel);
-    const glow=new THREE.Mesh(new THREE.CylinderGeometry(holeRadius*.95,holeRadius*.95,radius*2.13,48,1,true),new THREE.MeshBasicMaterial({color:targetType==='Mars'?0xff5b27:0x62dfff,transparent:true,opacity:.75,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));
-    glow.position.copy(targetGroup.position);glow.quaternion.copy(tunnel.quaternion);
-    addEffect(glow,1.9,(o,t)=>{o.material.opacity=Math.max(0,.75*(1-t/1.9));o.scale.set(1,1,1);});
+    // Bright rims sit at both openings; the center stays open so distant space can be seen.
     for(const sign of [-1,1]){
-      const end=targetGroup.localToWorld(normal.clone().multiplyScalar(radius*.93*sign));
-      const ring=new THREE.Mesh(new THREE.TorusGeometry(holeRadius*1.15,.045+power*.012,12,64),new THREE.MeshBasicMaterial({color:0xff9b56,transparent:true,opacity:.95,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));
-      ring.position.copy(end);ring.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),worldNormal.clone().multiplyScalar(sign));
-      addEffect(ring,1.65,(o,t)=>{o.scale.setScalar(1+t*(1.4+power*.25));o.material.opacity=Math.max(0,.95-t*.57);});
+      const localEnd=axis.clone().multiplyScalar(radius*.985*sign);
+      const end=targetGroup.localToWorld(localEnd);
+      const rim=new THREE.Mesh(new THREE.TorusGeometry(holeRadius*1.02,.035+power*.009,12,72),new THREE.MeshStandardMaterial({color:targetType==='Mars'?0xff6a35:0x91eaff,emissive:targetType==='Mars'?0x8b1c08:0x164f78,emissiveIntensity:1.4,metalness:.25,roughness:.42,side:THREE.DoubleSide}));
+      rim.position.copy(end);
+      rim.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),worldNormal.clone().multiplyScalar(sign));
+      targetGroup.add(rim);damageMarks.push(rim);
+      addEffect(rim,2.0,(o,t)=>{o.scale.setScalar(1+t*.28);o.material.emissiveIntensity=Math.max(.15,1.4-t*.55);});
     }
+    const glow=new THREE.Mesh(new THREE.CylinderGeometry(holeRadius*.91,holeRadius*.91,radius*1.9,48,1,true),new THREE.MeshBasicMaterial({color:targetType==='Mars'?0xff4c20:0x51cfff,transparent:true,opacity:.45,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));
+    glow.position.copy(targetGroup.position);glow.quaternion.copy(tunnel.quaternion);
+    addEffect(glow,1.7,(o,t)=>{o.material.opacity=Math.max(0,.45*(1-t/1.7));});
   }
   function addSignatureAttack(kind,power,hitPoint,worldNormal){
     const colors={throughhole:0x63e8ff,railgun:0x6fe8ff,plasma:0xff5c24,drill:0xffd36c,shatter:0xb8c7ff,gravitywell:0x9a6bff,rift:0xe35bff,ringburst:0x76dcff};
