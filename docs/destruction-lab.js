@@ -2,6 +2,7 @@
 (() => {
   const THREE_URL = 'https://esm.sh/three@0.160.0';
   let booted = false, active = false, paused = false, frame = 0, last = 0;
+  window.COSMOSIMDestructionReady = false;
   let THREE, renderer, scene, camera, orbit, targetGroup, targetMesh, targetType = 'Earth';
   let hp = 100, maxHp = 100, attackerLevel = 2, attackKind = 'alien', attackTimer = 0;
   let effects = [], debris = [], satellites = [], objectPanelOpen = true, attackPanelOpen = true;
@@ -161,7 +162,7 @@
       const Controls=await import('https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js');orbit=new Controls.OrbitControls(camera,renderer.domElement);orbit.enableDamping=true;orbit.minDistance=5;orbit.maxDistance=38;orbit.target.set(0,0,0);
       scene.add(new THREE.AmbientLight(0x8396c4,1.25));const key=new THREE.PointLight(0xffd8a0,140,60);key.position.set(-7,8,8);scene.add(key);const fill=new THREE.PointLight(0x3c75ff,55,45);fill.position.set(7,-3,-8);scene.add(fill);
       const starGeo=new THREE.BufferGeometry(),pos=[];for(let i=0;i<5000;i++){const r=70+Math.random()*220,a=Math.random()*Math.PI*2,b=Math.acos(2*Math.random()-1);pos.push(r*Math.sin(b)*Math.cos(a),r*Math.cos(b),r*Math.sin(b)*Math.sin(a));}starGeo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));scene.add(new THREE.Points(starGeo,new THREE.PointsMaterial({color:0xc4d6ff,size:1.1,sizeAttenuation:false})));
-      chooseObject('Earth');window.addEventListener('resize',resize);loop=animate;requestAnimationFrame(loop);
+      chooseObject('Earth');window.addEventListener('resize',resize);loop=animate;requestAnimationFrame(loop);window.COSMOSIMDestructionReady = true;
     }catch(err){
       console.error('COSMOSIM Destruction Lab failed to initialise:',err);
       if(statusEl)statusEl.textContent='3D engine failed to start: '+(err&&err.message?err.message:String(err))+'. Check internet access, then reload the page.';
