@@ -988,7 +988,7 @@ function showDestructionFallback(){
 function chooseSim(id){
  if(id==="destruction"){
   menuEl.classList.remove("open");
-  if(window.COSMOSIMDestructionOpen){window.COSMOSIMDestructionOpen();}
+  if(window.COSMOSIMDestructionOpen){(async()=>{try{await window.COSMOSIMDestructionOpen();}catch(e){console.error(e);}setTimeout(()=>{const stage=document.getElementById("destructionStage");if(!stage||stage.style.display==="none"||!stage.querySelector("canvas"))showDestructionFallback();},250);})();}
   else {showDestructionFallback();}
   return;
  }
