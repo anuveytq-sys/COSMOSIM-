@@ -46,7 +46,7 @@
       #dlStatus{position:fixed;z-index:35;right:12px;bottom:14px;width:min(300px,calc(100vw - 24px));padding:12px;border:1px solid #52618d88;border-radius:14px;background:#050a18d9;color:#e9efff;font:12px/1.55 system-ui;backdrop-filter:blur(10px)}
       #dlStatus strong{color:#8cecff}#dlHealth{height:7px;background:#25304c;border-radius:99px;overflow:hidden;margin:7px 0}#dlHealthFill{height:100%;width:100%;background:linear-gradient(90deg,#50e2a2,#f5d15c);transition:width .25s}
       #dlTop{position:fixed;z-index:36;top:12px;left:50%;transform:translateX(-50%);padding:8px 13px;border:1px solid #6c7fba;border-radius:999px;background:#070d1ce8;font:700 11px system-ui;letter-spacing:1.5px;white-space:nowrap}
-      #dlExit{position:fixed;z-index:38;right:12px;top:78px}
+      #dlExit{position:fixed;z-index:38;right:12px;top:78px}\n      .dl-reopen{position:fixed;z-index:37;left:12px;padding:8px 10px;border:1px solid #6d7fc0;background:#101a32;color:#eef3ff;border-radius:999px;font:700 11px system-ui;box-shadow:0 5px 18px #0008}\n      #dlReopenObjects{top:88px}#dlReopenAttackers{top:128px}
       @media(max-width:600px){.dl-panel{width:min(240px,calc(100vw - 24px));max-height:35vh;padding:9px}#dlObjects{top:76px;left:8px}#dlAttackers{top:auto;bottom:92px;left:8px;max-height:28vh}#dlStatus{right:8px;bottom:8px;width:calc(100vw - 272px);min-width:125px;font-size:10px;padding:8px}#dlTop{top:12px;font-size:9px}#dlExit{right:8px;top:57px;padding:8px;font-size:10px}.dl-choice{font-size:10px;padding:7px 5px}}
     `;document.head.appendChild(s);
   }
@@ -57,10 +57,10 @@
     const exit=document.createElement('button');exit.id='dlExit';exit.className='secondary';exit.textContent='← Exit Lab';exit.onclick=exitMode;document.body.appendChild(exit);
     objectPanel=document.createElement('section');objectPanel.id='dlObjects';objectPanel.className='dl-panel';objectPanel.innerHTML='<button class="dl-close" id="dlCloseObjects" aria-label="Hide object panel">×</button><h3>📍 OBJECT BAY</h3><div style="color:#9eadd5;margin-bottom:8px">Choose an object. It stays anchored at this fixed point.</div><div class="dl-grid" id="dlObjectChoices"></div><div class="dl-row"><button id="dlRemove" class="secondary">− Remove object</button><button id="dlRestore">↻ Restore</button></div>';
     attackPanel=document.createElement('section');attackPanel.id='dlAttackers';attackPanel.className='dl-panel';attackPanel.innerHTML='<button class="dl-close" id="dlCloseAttackers" aria-label="Hide attacker panel">×</button><h3>⚔️ DESTRUCTION SYSTEMS</h3><div style="color:#9eadd5;margin-bottom:8px">Attacker strength controls damage and impact effects.</div><div class="dl-grid" id="dlAttackChoices"></div><label>Attacker strength · <b id="dlStrengthLabel">2 / 5</b></label><input id="dlStrength" type="range" min="1" max="5" value="2"><div class="dl-row"><button id="dlAttackNow">▶ Launch attack</button><button id="dlClear" class="secondary">Clear effects</button></div>';
-    const status=document.createElement('div');status.id='dlStatus';status.innerHTML='<div style="display:flex;justify-content:space-between;gap:8px"><b id="dlTargetName">EARTH</b><span id="dlHpText">Integrity 100%</span></div><div id="dlHealth"><div id="dlHealthFill"></div></div><div id="dlAttackName"><strong>Ready:</strong> choose an attacker</div><div id="dlStatusText" style="color:#aebde2;margin-top:4px">Object is fixed at the central display point.</div>';
+    const reopenObj=document.createElement('button');reopenObj.id='dlReopenObjects';reopenObj.className='dl-reopen';reopenObj.textContent='＋ Object Bay';reopenObj.style.display='none';reopenObj.onclick=()=>{objectPanel.style.display='block';objectPanelOpen=true;reopenObj.style.display='none';};document.body.appendChild(reopenObj);const reopenAtk=document.createElement('button');reopenAtk.id='dlReopenAttackers';reopenAtk.className='dl-reopen';reopenAtk.textContent='＋ Attackers';reopenAtk.style.display='none';reopenAtk.onclick=()=>{attackPanel.style.display='block';attackPanelOpen=true;reopenAtk.style.display='none';};document.body.appendChild(reopenAtk);\n    const status=document.createElement('div');status.id='dlStatus';status.innerHTML='<div style="display:flex;justify-content:space-between;gap:8px"><b id="dlTargetName">EARTH</b><span id="dlHpText">Integrity 100%</span></div><div id="dlHealth"><div id="dlHealthFill"></div></div><div id="dlAttackName"><strong>Ready:</strong> choose an attacker</div><div id="dlStatusText" style="color:#aebde2;margin-top:4px">Object is fixed at the central display point.</div>';
     document.body.append(objectPanel,attackPanel,status);statusEl=$('dlStatusText');healthEl=$('dlHealthFill');targetNameEl=$('dlTargetName');attackNameEl=$('dlAttackName');
-    $('dlCloseObjects').onclick=()=>{objectPanel.style.display='none';objectPanelOpen=false;};
-    $('dlCloseAttackers').onclick=()=>{attackPanel.style.display='none';attackPanelOpen=false;};
+    $('dlCloseObjects').onclick=()=>{objectPanel.style.display='none';objectPanelOpen=false;$('dlReopenObjects').style.display='block';};
+    $('dlCloseAttackers').onclick=()=>{attackPanel.style.display='none';attackPanelOpen=false;$('dlReopenAttackers').style.display='block';};
     objectOptions.forEach(([name,icon,desc])=>{const b=document.createElement('button');b.className='dl-choice';b.dataset.object=name;b.innerHTML=icon+' '+name;b.title=desc;b.onclick=()=>chooseObject(name);$('dlObjectChoices').appendChild(b);});
     $('dlRemove').onclick=()=>{if(targetGroup){targetGroup.visible=false;hp=0;updateHealth();statusEl.textContent=targetType+' removed from its fixed display point.';targetNameEl.textContent='NO OBJECT';}};
     $('dlRestore').onclick=()=>chooseObject(targetType);
@@ -122,7 +122,7 @@
     (attacks[targetType]||attacks.Earth).forEach(([id,label,level])=>{const b=document.createElement('button');b.className='dl-choice';b.dataset.attack=id;b.textContent=label;b.onclick=()=>{attackKind=id;attackerLevel=Math.max(+ $('dlStrength').value,level);$('dlStrength').value=attackerLevel;$('dlStrengthLabel').textContent=attackerLevel+' / 5';document.querySelectorAll('.dl-choice[data-attack]').forEach(x=>x.classList.toggle('active',x.dataset.attack===id));$('dlAttackName').innerHTML='<strong>Selected:</strong> '+label;};box.appendChild(b);});
     const first=box.querySelector('button');if(first)first.click();
   }
-  function chooseObject(type){if(!active)return;buildTarget(type);}
+  function chooseObject(type){buildTarget(type);}
   function addEffect(mesh,life,update){scene.add(mesh);effects.push({mesh,life,age:0,update});}
   function makeProjectile(color,r=.18){return new THREE.Mesh(new THREE.SphereGeometry(r,16,12),new THREE.MeshStandardMaterial({color,emissive:color,emissiveIntensity:1.4,metalness:.2,roughness:.3}));}
   function launchAttack(){
@@ -173,12 +173,12 @@
   function enterMode(){
     active=true;paused=false;document.body.classList.add('dl-active');$('space').style.visibility='hidden';
     ['controls','stats','simInfo','simControls','hint','hudToggle'].forEach(id=>{if($(id))$(id).style.display='none';});
-    $('destructionStage').style.display='block';objectPanel.style.display=objectPanelOpen?'block':'none';attackPanel.style.display=attackPanelOpen?'block':'none';
+    $('destructionStage').style.display='block';objectPanel.style.display=objectPanelOpen?'block':'none';attackPanel.style.display=attackPanelOpen?'block':'none';$('dlReopenObjects').style.display=objectPanelOpen?'none':'block';$('dlReopenAttackers').style.display=attackPanelOpen?'none':'block';
     $('spaceMenu').classList.remove('open');document.querySelectorAll('.simChoice').forEach(b=>b.classList.toggle('active',b.dataset.sim==='destruction'));
     if($('pause'))$('pause').style.display='none';
   }
   function exitMode(){
-    if(!active)return;active=false;canvasHost.style.display='none';objectPanel.style.display='none';attackPanel.style.display='none';
+    if(!active)return;active=false;canvasHost.style.display='none';objectPanel.style.display='none';attackPanel.style.display='none';$('dlReopenObjects').style.display='none';$('dlReopenAttackers').style.display='none';
     $('space').style.visibility='visible';['controls','stats','simInfo','simControls','hint','hudToggle'].forEach(id=>{if($(id))$(id).style.display='';});
     if($('pause'))$('pause').style.display='';document.body.classList.remove('dl-active');
     const selected=document.querySelector('.simChoice[data-sim="blackhole"]');if(selected)selected.click();
