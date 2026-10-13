@@ -2,7 +2,7 @@
 (() => {
   const THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
   let booted = false, active = false, paused = false, frame = 0, last = 0;
-  let renderer, scene, camera, orbit, targetGroup, targetMesh, targetType = 'Earth';
+  let THREE, renderer, scene, camera, orbit, targetGroup, targetMesh, targetType = 'Earth';
   let hp = 100, maxHp = 100, attackerLevel = 2, attackKind = 'alien', attackTimer = 0;
   let effects = [], debris = [], satellites = [], objectPanelOpen = true, attackPanelOpen = true;
   let objectPanel, attackPanel, statusEl, healthEl, targetNameEl, attackNameEl, canvasHost, loop;
@@ -151,7 +151,7 @@
   }
   async function setupThree(){
     if(booted)return;booted=true;
-    const THREE=await import(THREE_URL);
+    THREE=await import(THREE_URL);
     scene=new THREE.Scene();scene.background=new THREE.Color(0x030611);scene.fog=new THREE.FogExp2(0x030611,.006);
     camera=new THREE.PerspectiveCamera(56,innerWidth/innerHeight,.1,900);camera.position.set(0,4.8,13);
     renderer=new THREE.WebGLRenderer({antialias:true,alpha:false});renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.3;canvasHost.appendChild(renderer.domElement);
