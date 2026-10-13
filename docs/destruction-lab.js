@@ -43,14 +43,14 @@
       .dl-panel label{display:block;color:#b5c3e8;margin:9px 0 4px;font-size:11px}
       .dl-panel input[type=range]{width:100%;accent-color:#a58bff}
       .dl-row{display:flex;gap:6px;margin-top:7px}.dl-row button{flex:1;font-size:11px;padding:8px 6px}
-      #dlObjects{left:50%;transform:translateX(-50%);bottom:12px;top:auto;width:min(820px,calc(100vw - 330px));max-width:calc(100vw - 330px);max-height:min(25vh,230px);overflow-y:auto;overflow-x:hidden}#dlObjects .dl-grid{display:flex;gap:7px;overflow-x:auto;padding:2px 0 7px}#dlObjects .dl-choice{min-width:112px;flex:0 0 auto}#dlAttackers{left:12px;top:86px;bottom:auto;width:245px;max-height:calc(100vh - 112px);overflow-y:auto}#dlAttackers .dl-grid{grid-template-columns:1fr;overflow-y:auto;max-height:38vh}
+      #dlObjects{left:50%;transform:translateX(-50%);bottom:12px;top:auto;width:min(820px,calc(100vw - 330px));max-width:calc(100vw - 330px);max-height:min(30vh,280px);overflow-y:auto;overflow-x:hidden}#dlObjects .dl-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;overflow:visible;padding:2px 0 7px}#dlObjects .dl-choice{min-width:0;width:100%;flex:none;text-align:center;padding:10px 4px}#dlAttackers{left:12px;top:86px;bottom:auto;width:245px;max-height:calc(100vh - 112px);overflow-y:auto}#dlAttackers .dl-grid{grid-template-columns:1fr;overflow-y:auto;max-height:38vh}
       #dlStatus{position:fixed;z-index:35;right:12px;bottom:14px;width:min(300px,calc(100vw - 24px));max-height:32vh;overflow-y:auto;overscroll-behavior:contain;padding:12px;border:1px solid #52618d88;border-radius:14px;background:#050a18d9;color:#e9efff;font:12px/1.55 system-ui;backdrop-filter:blur(10px)}
       #dlStatus strong{color:#8cecff}#dlHealth{height:7px;background:#25304c;border-radius:99px;overflow:hidden;margin:7px 0}#dlHealthFill{height:100%;width:100%;background:linear-gradient(90deg,#50e2a2,#f5d15c);transition:width .25s}
       #dlTop{position:fixed;z-index:36;top:12px;left:50%;transform:translateX(-50%);padding:8px 13px;border:1px solid #6c7fba;border-radius:999px;background:#070d1ce8;font:700 11px system-ui;letter-spacing:1.5px;white-space:nowrap}
       #dlExit{position:fixed;z-index:38;right:12px;top:78px}
       .dl-reopen{position:fixed;z-index:37;left:12px;padding:8px 10px;border:1px solid #6d7fc0;background:#101a32;color:#eef3ff;border-radius:999px;font:700 11px system-ui;box-shadow:0 5px 18px #0008}
       #dlReopenObjects{top:88px}#dlReopenAttackers{top:128px}
-      @media(max-width:700px){.dl-panel{padding:8px}#dlObjects{left:8px;transform:none;bottom:8px;top:auto;width:calc(100vw - 16px);max-width:none;max-height:28vh}#dlObjects .dl-grid{display:flex;overflow-x:auto}#dlObjects .dl-choice{min-width:100px}#dlAttackers{left:8px;top:65px;bottom:auto;width:min(190px,52vw);max-height:calc(100vh - 100px);overflow-y:auto}#dlAttackers .dl-grid{grid-template-columns:1fr 1fr;max-height:17vh;overflow:auto}#dlStatus{right:8px;bottom:calc(28vh + 18px);width:min(190px,45vw);min-width:0;max-height:22vh;font-size:10px;padding:8px}#dlTop{top:12px;font-size:9px}#dlExit{right:8px;top:49px;padding:7px;font-size:10px}.dl-choice{font-size:10px;padding:7px 5px}.dl-panel h3{font-size:11px}}
+      @media(max-width:700px){.dl-panel{padding:8px}#dlObjects{left:8px;transform:none;bottom:8px;top:auto;width:calc(100vw - 16px);max-width:none;max-height:32vh}#dlObjects .dl-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));overflow:visible;gap:5px}#dlObjects .dl-choice{min-width:0;width:100%;padding:8px 2px;font-size:9px}#dlAttackers{left:8px;top:65px;bottom:auto;width:min(190px,52vw);max-height:calc(100vh - 100px);overflow-y:auto}#dlAttackers .dl-grid{grid-template-columns:1fr 1fr;max-height:17vh;overflow:auto}#dlStatus{right:8px;bottom:calc(28vh + 18px);width:min(190px,45vw);min-width:0;max-height:22vh;font-size:10px;padding:8px}#dlTop{top:12px;font-size:9px}#dlExit{right:8px;top:49px;padding:7px;font-size:10px}.dl-choice{font-size:10px;padding:7px 5px}.dl-panel h3{font-size:11px}}
     `;document.head.appendChild(s);
   }
   function makeUI(){
@@ -132,7 +132,7 @@
     targetGroup.userData.baseScale=1;hp=maxHp=data.hp;updateHealth();
     if(targetNameEl)targetNameEl.textContent=type.toUpperCase();
     document.querySelectorAll('.dl-choice[data-object]').forEach(b=>b.classList.toggle('active',b.dataset.object===type));
-    if(statusEl)statusEl.textContent=type+' placed at the fixed centre point. Choose a destroyer to launch an animated attack.';
+    if(statusEl)statusEl.textContent=type+' placed at the fixed centre point. Choose any object in the 4-column Object Bay grid; each attack leaves a visible crater whose 3D depth and radius scale with strength.';
     refreshAttackChoices();
   }
   function updateHealth(){
@@ -150,12 +150,33 @@
   function makeProjectile(color,r=.18){return new THREE.Mesh(new THREE.SphereGeometry(r,16,12),new THREE.MeshStandardMaterial({color,emissive:color,emissiveIntensity:1.4,metalness:.2,roughness:.3}));}
   function addSurfaceDamage(power){
     if(!targetGroup||!targetMesh||!['Earth','Moon','Mars','Saturn'].includes(targetType))return;
-    const radius=targetMesh.geometry?.parameters?.radius||opts[targetType].r;
-    const normal=new THREE.Vector3((Math.random()-.5)*1.25,(Math.random()-.5)*1.25,.48+Math.random()*.52).normalize();
+    const geometry=targetMesh.geometry;
+    const radius=geometry?.parameters?.radius||opts[targetType].r;
+    // Pick a point on the camera-facing hemisphere, then physically displace sphere vertices inward.
+    const normal=new THREE.Vector3((Math.random()-.5)*1.35,(Math.random()-.5)*1.25,.62+Math.random()*.38).normalize();
+    if(geometry?.attributes?.position){
+      const position=geometry.attributes.position;
+      const angularRadius=.075+power*.043;
+      const depth=radius*(.012+power*.014);
+      for(let i=0;i<position.count;i++){
+        const v=new THREE.Vector3(position.getX(i),position.getY(i),position.getZ(i));
+        const currentRadius=v.length();if(!currentRadius)continue;
+        const direction=v.clone().normalize();const dot=THREE.MathUtils.clamp(direction.dot(normal),-1,1);const angle=Math.acos(dot);
+        if(angle<angularRadius*1.18){
+          const q=angle/angularRadius;
+          const bowl=Math.exp(-q*q*4.2);
+          const rim=Math.exp(-Math.pow((q-.91)/.16,2));
+          const displacement=-depth*bowl+depth*.34*rim;
+          v.addScaledVector(direction,displacement);
+          position.setXYZ(i,v.x,v.y,v.z);
+        }
+      }
+      position.needsUpdate=true;geometry.computeVertexNormals();geometry.computeBoundingSphere();
+    }
     const patch=new THREE.Group();patch.position.copy(normal.clone().multiplyScalar(radius*1.006));patch.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),normal);
-    const size=radius*(.055+power*.018);
+    const size=radius*(.075+power*.035);
     const outer=new THREE.Mesh(new THREE.CircleGeometry(size*1.2,40),new THREE.MeshBasicMaterial({color:targetType==='Moon'?0x5b5149:0x7a321e,transparent:true,opacity:.58,depthWrite:false,side:THREE.DoubleSide}));
-    const inner=new THREE.Mesh(new THREE.CircleGeometry(size*.76,40),new THREE.MeshBasicMaterial({color:targetType==='Moon'?0x24262b:0x17191d,transparent:true,opacity:.84,depthWrite:false,side:THREE.DoubleSide}));
+    const inner=new THREE.Mesh(new THREE.CircleGeometry(size*.76,40),new THREE.MeshBasicMaterial({color:targetType==='Moon'?0x24262b:0x17191d,transparent:true,opacity:.94,depthWrite:false,side:THREE.DoubleSide}));
     outer.position.z=.003;inner.position.z=.006;patch.add(outer,inner);
     const rim=new THREE.Mesh(new THREE.TorusGeometry(size*.76,Math.max(.012,size*.12),8,48),new THREE.MeshStandardMaterial({color:targetType==='Moon'?0xc1b8a7:0xb45b34,roughness:1,transparent:true,opacity:.72}));rim.position.z=.009;patch.add(rim);
     targetGroup.add(patch);damageMarks.push(patch);
