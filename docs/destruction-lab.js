@@ -232,7 +232,7 @@
     }
   }
   function addThroughHole(power,normal,hitPoint,worldNormal){
-    if(!targetGroup||!targetMesh||!['Earth','Moon','Mars'].includes(targetType))return;
+    if(!targetGroup||!targetMesh||!['Earth','Moon','Mars','Saturn'].includes(targetType))return;
     const radius=opts[targetType].r, holeRadius=radius*(.095+power*.027);
     const geom=targetMesh.geometry, pos=geom?.attributes?.position;
     if(pos){
