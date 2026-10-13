@@ -60,7 +60,7 @@ jobs:
           injection = '<script type="module" src="./interstellar-flight.js?v=91dedc9"></script>\\n'
           if injection not in html:
               html = html.replace("</body>", injection + "</body>", 1)
-          destruction = '<script type="module" src="./destruction-lab.js?v=destruction-lab-20261013"></script>\\n'
+          destruction = '<script type="module" src="./destruction-lab.js?v=destruction-lab-20261013-fix1"></script>\\n'
           if destruction not in html:
               html = html.replace("</body>", destruction + "</body>", 1)
           page.write_text(html, encoding="utf-8")
