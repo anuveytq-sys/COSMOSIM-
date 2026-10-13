@@ -5,7 +5,7 @@
   window.COSMOSIMDestructionReady = false;
   let THREE, renderer, scene, camera, orbit, targetGroup, targetMesh, targetType = 'Earth';
   let hp = 100, maxHp = 100, attackerLevel = 2, attackKind = 'alien', attackTimer = 0;
-  let effects = [], debris = [], satellites = [], damageMarks = [], finalDestruction = null, starField = null, nebulaField = null, objectPanelOpen = true, attackPanelOpen = true;
+  let effects = [], debris = [], satellites = [], damageMarks = [], finalDestruction = null, starField = null, nebulaField = null, objectPanelOpen = true, attackPanelOpen = true, impactSequence = 0;
   let objectPanel, attackPanel, statusEl, healthEl, targetNameEl, attackNameEl, canvasHost, loop;
   const $ = id => document.getElementById(id);
   const objectOptions = [
@@ -103,7 +103,7 @@
       if(type==='Earth')material=mat(0xffffff,.78,.01,{map:earthTexture(),emissive:0x06213d,emissiveIntensity:.14});
       else if(type==='Moon'||type==='Mars'||type==='Saturn')material=mat(0xffffff,.92,.01,{map:proceduralSurfaceTexture(type),emissive:type==='Mars'?0x220600:0x080808,emissiveIntensity:.06});
       else if(type==='Sun')material=mat(0xffffff,.38,0,{map:proceduralSurfaceTexture('Sun'),emissive:0xff4b08,emissiveIntensity:1.6});
-      const sphere=new THREE.Mesh(new THREE.SphereGeometry(data.r,96,64),material);targetGroup.add(sphere);targetMesh=sphere;sphere.castShadow=true;
+      const sphere=new THREE.Mesh(new THREE.SphereGeometry(data.r,256,192),material);targetGroup.add(sphere);targetMesh=sphere;sphere.castShadow=true;
       const planetMaps={Earth:'https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg',Moon:'https://threejs.org/examples/textures/planets/moon_1024.jpg',Mars:'https://threejs.org/examples/textures/planets/mars_1k_color.jpg'};
       const textureLoader=new THREE.TextureLoader();
       if(planetMaps[type])textureLoader.load(planetMaps[type],tex=>{if(targetMesh===sphere&&sphere.material){tex.colorSpace=THREE.SRGBColorSpace;sphere.material.map=tex;sphere.material.color.set(0xffffff);sphere.material.needsUpdate=true;}},undefined,()=>{});
@@ -148,16 +148,17 @@
   function chooseObject(type){buildTarget(type);}
   function addEffect(mesh,life,update){scene.add(mesh);effects.push({mesh,life,age:0,update});}
   function makeProjectile(color,r=.18){return new THREE.Mesh(new THREE.SphereGeometry(r,16,12),new THREE.MeshStandardMaterial({color,emissive:color,emissiveIntensity:1.4,metalness:.2,roughness:.3}));}
-  function addSurfaceDamage(power){
+  function addSurfaceDamage(power,normal){
     if(!targetGroup||!targetMesh||!['Earth','Moon','Mars','Saturn'].includes(targetType))return;
     const geometry=targetMesh.geometry;
     const radius=geometry?.parameters?.radius||opts[targetType].r;
-    // Pick a point on the camera-facing hemisphere, then physically displace sphere vertices inward.
-    const normal=new THREE.Vector3((Math.random()-.5)*1.35,(Math.random()-.5)*1.25,.62+Math.random()*.38).normalize();
+    // Deform the actual high-resolution sphere at the exact local surface point hit by the attack.
+    normal=normal?normal.clone().normalize():new THREE.Vector3(0,0,1);
+    const angularRadius=.18+power*.075;
+    const depth=radius*(.025+power*.025);
+    const craterRadius=radius*(.11+power*.055);
     if(geometry?.attributes?.position){
       const position=geometry.attributes.position;
-      const angularRadius=.075+power*.043;
-      const depth=radius*(.012+power*.014);
       for(let i=0;i<position.count;i++){
         const v=new THREE.Vector3(position.getX(i),position.getY(i),position.getZ(i));
         const currentRadius=v.length();if(!currentRadius)continue;
@@ -173,12 +174,12 @@
       }
       position.needsUpdate=true;geometry.computeVertexNormals();geometry.computeBoundingSphere();
     }
-    const patch=new THREE.Group();patch.position.copy(normal.clone().multiplyScalar(radius*1.006));patch.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),normal);
-    const size=radius*(.075+power*.035);
+    const patch=new THREE.Group();patch.position.copy(normal.clone().multiplyScalar(Math.max(radius*.88,radius-depth*.88)));patch.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),normal);
+    const size=craterRadius;
     const outer=new THREE.Mesh(new THREE.CircleGeometry(size*1.2,40),new THREE.MeshBasicMaterial({color:targetType==='Moon'?0x5b5149:0x7a321e,transparent:true,opacity:.58,depthWrite:false,side:THREE.DoubleSide}));
     const inner=new THREE.Mesh(new THREE.CircleGeometry(size*.76,40),new THREE.MeshBasicMaterial({color:targetType==='Moon'?0x24262b:0x17191d,transparent:true,opacity:.94,depthWrite:false,side:THREE.DoubleSide}));
-    outer.position.z=.003;inner.position.z=.006;patch.add(outer,inner);
-    const rim=new THREE.Mesh(new THREE.TorusGeometry(size*.76,Math.max(.012,size*.12),8,48),new THREE.MeshStandardMaterial({color:targetType==='Moon'?0xc1b8a7:0xb45b34,roughness:1,transparent:true,opacity:.72}));rim.position.z=.009;patch.add(rim);
+    outer.position.z=depth*.25;inner.position.z=depth*.45;patch.add(outer,inner);
+    const rim=new THREE.Mesh(new THREE.TorusGeometry(size*.76,Math.max(.018,size*.14),12,64),new THREE.MeshStandardMaterial({color:targetType==='Moon'?0xc1b8a7:0xb45b34,roughness:.95,metalness:.02,transparent:true,opacity:.9}));rim.position.z=depth*.92;patch.add(rim);
     targetGroup.add(patch);damageMarks.push(patch);
     if(damageMarks.length>24){const old=damageMarks.shift();targetGroup.remove(old);old.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose?.();});}
   }
@@ -201,26 +202,35 @@
   }
   function launchAttack(){
     if(!active||!targetGroup||!targetGroup.visible){statusEl.textContent='Add an object at the fixed point before launching an attack.';return;}
-    const power=+ $('dlStrength').value;attackerLevel=power;addSurfaceDamage(power);
+    const power=+ $('dlStrength').value;attackerLevel=power;
+    // Pick a distinct point on the visible hemisphere. Projectile, flash, ejecta and crater share this exact point.
+    const phase=impactSequence++*2.399963229728653;
+    const nx=Math.sin(phase)*.42,ny=Math.cos(phase*1.37)*.32;
+    const impactNormal=new THREE.Vector3(nx,ny,Math.sqrt(Math.max(.2,1-nx*nx-ny*ny))).normalize();
+    const surfaceRadius=targetMesh?.geometry?.parameters?.radius||opts[targetType].r;
+    const hitPoint=targetGroup.localToWorld(impactNormal.clone().multiplyScalar(surfaceRadius));
+    const worldNormal=impactNormal.clone().applyQuaternion(targetGroup.quaternion).normalize();
+    addSurfaceDamage(power,impactNormal);
     const baseDamage={1:5,2:10,3:17,4:26,5:38}[power];const scale=opts[targetType].hp/100;
     const damage=Math.min(hp,Math.round(baseDamage*scale*(attackKind==='moon'||attackKind==='supernova'?1.25:1)));
     hp=Math.max(0,hp-damage);updateHealth();attackNameEl.innerHTML='<strong>Impact:</strong> '+attackKind+' · strength '+power+'/5 · −'+damage+' integrity';
-    statusEl.textContent=attacks[targetType].find(a=>a[0]===attackKind)?.[1]+' launched. Approximate energy model: stronger attackers cause more damage; object remains at the same location.';
+    statusEl.textContent=attacks[targetType].find(a=>a[0]===attackKind)?.[1]+' hit the marked surface point. Strength '+power+'/5 creates a larger and deeper crater with a raised rim, ejecta and an expanding impact wave.';
     if(attackKind==='alien'){
       const ship=new THREE.Group();const hull=new THREE.Mesh(new THREE.ConeGeometry(.28,.9,8),new THREE.MeshStandardMaterial({color:0x9eb4cc,metalness:.8,roughness:.25,emissive:0x143b61}));hull.rotation.z=-Math.PI/2;ship.add(hull);
       const wing=new THREE.Mesh(new THREE.BoxGeometry(.8,.05,.22),new THREE.MeshStandardMaterial({color:0x5b6b9c,metalness:.8}));ship.add(wing);
-      ship.position.set(0,1,-12);addEffect(ship,3,(o,t)=>{o.position.x=Math.sin(t*4)*.7;o.position.z=-12+t*4.2;if(Math.floor(t*5)!==Math.floor((t-.04)*5)){const p=makeProjectile(0xff3d65,.07);p.position.copy(o.position);const dest=new THREE.Vector3(0,0,0);const dir=dest.sub(p.position).normalize();addEffect(p,1.2,(q,tt)=>q.position.addScaledVector(dir,9*tt));}});
+      const start=hitPoint.clone().addScaledVector(worldNormal,11);ship.position.copy(start);addEffect(ship,2.7,(o,t)=>{o.position.lerpVectors(start,hitPoint,Math.min(1,t/2.7));o.rotation.y+=.04;if(Math.floor(t*5)!==Math.floor((t-.04)*5)){const p=makeProjectile(0xff3d65,.07);p.position.copy(o.position);const dest=hitPoint.clone();const dir=dest.sub(p.position).normalize();addEffect(p,Math.max(.3,p.position.distanceTo(hitPoint)/9),(q,tt)=>q.position.addScaledVector(dir,9*tt));}});
     } else if(attackKind==='nuke'||attackKind==='moon'||attackKind==='asteroids'){
       const count=attackKind==='moon'?1:attackKind==='nuke'?1:Math.min(12,3+power*2);
-      for(let i=0;i<count;i++){const p=makeProjectile(attackKind==='nuke'?0xffd27d:(attackKind==='moon'?0xb4bdce:0x998a78),attackKind==='moon'?.65:.12+power*.025);p.position.set((Math.random()-.5)*3,(Math.random()-.5)*4,-10);const start=p.position.clone(),dest=new THREE.Vector3((Math.random()-.5)*1.2,(Math.random()-.5)*1.2,0);addEffect(p,1.8,(q,t)=>q.position.lerpVectors(start,dest,Math.min(1,t/1.8)));if(attackKind==='moon')break;}
+      for(let i=0;i<count;i++){const p=makeProjectile(attackKind==='nuke'?0xffd27d:(attackKind==='moon'?0xb4bdce:0x998a78),attackKind==='moon'?.65:.12+power*.025);const spread=new THREE.Vector3((Math.random()-.5)*1.5,(Math.random()-.5)*1.5,0);const start=hitPoint.clone().addScaledVector(worldNormal,10).add(spread);p.position.copy(start);const dest=hitPoint.clone();addEffect(p,1.8,(q,t)=>q.position.lerpVectors(start,dest,Math.min(1,t/1.8)));if(attackKind==='moon')break;}
     } else if(attackKind==='beam'||attackKind==='antimatter'||attackKind==='blackpulse'){
-      const color=attackKind==='beam'?0x5be8ff:attackKind==='antimatter'?0xff62e7:0x9e79ff;const geo=attackKind==='blackpulse'?new THREE.TorusGeometry(1,.06,8,64):new THREE.CylinderGeometry(.12,.5,9,24,1,true);const m=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({color,transparent:true,opacity:.8,blending:THREE.AdditiveBlending,depthWrite:false}));m.position.set(0,0,-7);if(attackKind!=='blackpulse')m.rotation.x=Math.PI/2;addEffect(m,1.8,(o,t)=>{o.scale.setScalar(.4+t*1.6);o.material.opacity=Math.max(0,.8-t*.4);if(attackKind==='blackpulse')o.rotation.z=t*2;});
+      const color=attackKind==='beam'?0x5be8ff:attackKind==='antimatter'?0xff62e7:0x9e79ff;const geo=attackKind==='blackpulse'?new THREE.TorusGeometry(.55,.06,12,64):new THREE.CylinderGeometry(.12,.5,9,32,1,true);const m=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({color,transparent:true,opacity:.9,blending:THREE.AdditiveBlending,depthWrite:false}));m.position.copy(hitPoint);if(attackKind!=='blackpulse'){m.position.addScaledVector(worldNormal,4.5);m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),worldNormal.clone().negate());}addEffect(m,1.8,(o,t)=>{o.scale.setScalar(.4+t*1.6);o.material.opacity=Math.max(0,.9-t*.4);if(attackKind==='blackpulse')o.rotation.z=t*2;});
     } else if(attackKind==='supernova'){
-      const wave=new THREE.Mesh(new THREE.SphereGeometry(.5,32,24),new THREE.MeshBasicMaterial({color:0xffa04d,wireframe:true,transparent:true,opacity:.8,blending:THREE.AdditiveBlending}));addEffect(wave,2.2,(o,t)=>{o.scale.setScalar(1+t*10);o.material.opacity=Math.max(0,.8-t*.35);});
+      const wave=new THREE.Mesh(new THREE.SphereGeometry(.5,48,32),new THREE.MeshBasicMaterial({color:0xffa04d,wireframe:true,transparent:true,opacity:.85,blending:THREE.AdditiveBlending}));wave.position.copy(hitPoint);addEffect(wave,2.2,(o,t)=>{o.scale.setScalar(1+t*(5+power));o.material.opacity=Math.max(0,.85-t*.38);});
     }
     // Brief luminous impact ring and restrained fragments; no object translation.
-    const impact=new THREE.Mesh(new THREE.SphereGeometry(.22,16,12),new THREE.MeshBasicMaterial({color:0xffb85e,transparent:true,opacity:.8,blending:THREE.AdditiveBlending}));addEffect(impact,1.0,(o,t)=>{o.scale.setScalar(1+t*12);o.material.opacity=Math.max(0,.8-t*.8);});
-    for(let i=0;i<Math.min(20,4+power*3);i++){const d=new THREE.Mesh(new THREE.IcosahedronGeometry(.035+Math.random()*.045,0),new THREE.MeshStandardMaterial({color:0xffa26a,emissive:0x7a1c08}));d.position.set((Math.random()-.5)*opts[targetType].r*2,(Math.random()-.5)*opts[targetType].r*2,(Math.random()-.5)*opts[targetType].r*2);d.userData.v=new THREE.Vector3((Math.random()-.5)*1.8,(Math.random()-.5)*1.8,(Math.random()-.5)*1.8);addEffect(d,2,(o,t)=>{o.position.addScaledVector(o.userData.v,.025);o.rotation.x+=.03;o.rotation.y+=.04;o.material.opacity=Math.max(0,1-t/2);});}
+    const impact=new THREE.Mesh(new THREE.SphereGeometry(.18+power*.035,32,24),new THREE.MeshBasicMaterial({color:0xffb85e,transparent:true,opacity:.95,blending:THREE.AdditiveBlending,depthWrite:false}));impact.position.copy(hitPoint);addEffect(impact,1.15,(o,t)=>{o.scale.setScalar(1+t*(4+power*1.5));o.material.opacity=Math.max(0,.95-t*.82);});
+    const shock=new THREE.Mesh(new THREE.TorusGeometry(.25+power*.08,.035+power*.006,10,64),new THREE.MeshBasicMaterial({color:0xff8d5c,transparent:true,opacity:.95,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));shock.position.copy(hitPoint);shock.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),worldNormal);addEffect(shock,1.25,(o,t)=>{o.scale.setScalar(1+t*(3+power));o.material.opacity=Math.max(0,.95-t*.8);});
+    for(let i=0;i<Math.min(32,8+power*5);i++){const d=new THREE.Mesh(new THREE.IcosahedronGeometry(.025+Math.random()*.055*power/3,0),new THREE.MeshStandardMaterial({color:i%3===0?0xffd3a1:0xff7547,emissive:0x8a2108,emissiveIntensity:1.4,transparent:true}));d.position.copy(hitPoint).add(new THREE.Vector3((Math.random()-.5)*power*.6,(Math.random()-.5)*power*.6,(Math.random()-.5)*power*.6));d.userData.v=worldNormal.clone().multiplyScalar(1+Math.random()*power).add(new THREE.Vector3((Math.random()-.5)*power,(Math.random()-.5)*power,(Math.random()-.5)*power));addEffect(d,2.4,(o,t)=>{o.position.addScaledVector(o.userData.v,.035);o.rotation.x+=.05;o.rotation.y+=.06;o.material.opacity=Math.max(0,1-t/2.4);});}
     if(hp===0)beginFinalDestruction();
   }
   async function setupThree(){
@@ -229,12 +239,12 @@
     makeUI();
     try{
       THREE=await import(THREE_URL);
-      scene=new THREE.Scene();scene.background=new THREE.Color(0x030611);scene.fog=new THREE.FogExp2(0x030611,.006);
-      camera=new THREE.PerspectiveCamera(56,innerWidth/innerHeight,.1,900);camera.position.set(0,4.8,13);
-      renderer=new THREE.WebGLRenderer({antialias:true,alpha:false});renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.3;canvasHost.appendChild(renderer.domElement);
+      scene=new THREE.Scene();scene.background=new THREE.Color(0x02040c);scene.fog=new THREE.FogExp2(0x02040c,.0032);
+      camera=new THREE.PerspectiveCamera(52,innerWidth/innerHeight,.1,1100);camera.position.set(0,3.6,12.2);
+      renderer=new THREE.WebGLRenderer({antialias:true,alpha:false});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.18;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;canvasHost.appendChild(renderer.domElement);
       const Controls=await import('https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js');orbit=new Controls.OrbitControls(camera,renderer.domElement);orbit.enableDamping=true;orbit.minDistance=5;orbit.maxDistance=38;orbit.target.set(0,0,0);
-      scene.add(new THREE.AmbientLight(0x8396c4,1.25));const key=new THREE.PointLight(0xffd8a0,140,60);key.position.set(-7,8,8);scene.add(key);const fill=new THREE.PointLight(0x3c75ff,55,45);fill.position.set(7,-3,-8);scene.add(fill);
-      const starGeo=new THREE.BufferGeometry(),pos=[];for(let i=0;i<5000;i++){const r=70+Math.random()*220,a=Math.random()*Math.PI*2,b=Math.acos(2*Math.random()-1);pos.push(r*Math.sin(b)*Math.cos(a),r*Math.cos(b),r*Math.sin(b)*Math.sin(a));}starGeo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));starField=new THREE.Points(starGeo,new THREE.PointsMaterial({color:0xc4d6ff,size:1.1,sizeAttenuation:false}));scene.add(starField);nebulaField=new THREE.Mesh(new THREE.PlaneGeometry(130,85),new THREE.MeshBasicMaterial({map:makeNebulaTexture(),transparent:true,opacity:.72,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending}));nebulaField.position.set(0,0,-55);scene.add(nebulaField);
+      scene.add(new THREE.HemisphereLight(0x9ebdff,0x080b20,.8));scene.add(new THREE.AmbientLight(0x6f82b7,.42));const key=new THREE.PointLight(0xffd8a0,185,75);key.position.set(-7,8,8);key.castShadow=true;key.shadow.mapSize.set(1024,1024);scene.add(key);const fill=new THREE.PointLight(0x3c75ff,78,55);fill.position.set(7,-3,-8);scene.add(fill);const rimLight=new THREE.PointLight(0x6d54ff,48,60);rimLight.position.set(1,7,-10);scene.add(rimLight);
+      const starGeo=new THREE.BufferGeometry(),pos=[];for(let i=0;i<8500;i++){const r=70+Math.random()*220,a=Math.random()*Math.PI*2,b=Math.acos(2*Math.random()-1);pos.push(r*Math.sin(b)*Math.cos(a),r*Math.cos(b),r*Math.sin(b)*Math.sin(a));}starGeo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));starField=new THREE.Points(starGeo,new THREE.PointsMaterial({color:0xd6e2ff,size:1.15,sizeAttenuation:false,transparent:true,opacity:.95}));scene.add(starField);nebulaField=new THREE.Mesh(new THREE.PlaneGeometry(130,85),new THREE.MeshBasicMaterial({map:makeNebulaTexture(),transparent:true,opacity:.72,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending}));nebulaField.position.set(0,0,-55);scene.add(nebulaField);const nebula2=new THREE.Mesh(new THREE.PlaneGeometry(95,68),new THREE.MeshBasicMaterial({map:makeNebulaTexture(),transparent:true,opacity:.28,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending}));nebula2.position.set(-35,12,-72);nebula2.rotation.z=-.42;scene.add(nebula2);nebulaField.userData.secondary=nebula2;
       chooseObject('Earth');window.addEventListener('resize',resize);loop=animate;requestAnimationFrame(loop);window.COSMOSIMDestructionReady = true;
     }catch(err){
       console.error('COSMOSIM Destruction Lab failed to initialise:',err);
@@ -250,7 +260,7 @@
       for(let i=effects.length-1;i>=0;i--){const e=effects[i];e.age+=dt;if(e.update)e.update(e.mesh,e.age);if(e.age>=e.life){scene.remove(e.mesh);e.mesh.traverse?.(o=>{if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose?.();});effects.splice(i,1);}}
       if(targetType==='Sun'&&targetGroup?.visible)targetGroup.children.forEach((o,i)=>{if(i>1&&o.material?.transparent)o.scale.setScalar(1+Math.sin(frame*2+i)*.018);});
       if(finalDestruction&&targetGroup){finalDestruction.age+=dt;const t=finalDestruction.age,d=finalDestruction.duration;if(finalDestruction.halves.length===2){const a=finalDestruction.halves[0],b=finalDestruction.halves[1];a.position.x=-Math.max(0,t-.12)*1.55;a.position.y=-Math.max(0,t-.12)*.38;a.rotation.z=-t*.7;b.position.x=Math.max(0,t-.12)*1.8;b.position.y=Math.max(0,t-.12)*.58;b.rotation.z=t*.95;}else{targetGroup.scale.setScalar(Math.max(.015,1-t/d));targetGroup.rotation.z+=dt*.7;}if(t>=d){targetGroup.visible=false;finalDestruction=null;if(statusEl)statusEl.textContent=targetType+' destroyed. Choose Restore to rebuild the object at its fixed display point.';}}
-      if(starField){starField.rotation.y=frame*.0018;starField.rotation.x=Math.sin(frame*.08)*.006;}if(nebulaField)nebulaField.rotation.z=frame*.0012;
+      if(starField){starField.rotation.y=frame*.0018;starField.rotation.x=Math.sin(frame*.08)*.006;}if(nebulaField){nebulaField.rotation.z=frame*.0012;if(nebulaField.userData.secondary)nebulaField.userData.secondary.rotation.z=-.42+frame*.0007;}
     }
     if(orbit)orbit.update();renderer.render(scene,camera);
   }
