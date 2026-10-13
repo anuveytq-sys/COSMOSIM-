@@ -5,7 +5,7 @@
   window.COSMOSIMDestructionReady = false;
   let THREE, renderer, scene, camera, orbit, targetGroup, targetMesh, targetType = 'Earth';
   let hp = 100, maxHp = 100, attackerLevel = 2, attackKind = 'alien', attackTimer = 0;
-  let effects = [], debris = [], satellites = [], objectPanelOpen = true, attackPanelOpen = true;
+  let effects = [], debris = [], satellites = [], damageMarks = [], finalDestruction = null, starField = null, nebulaField = null, objectPanelOpen = true, attackPanelOpen = true;
   let objectPanel, attackPanel, statusEl, healthEl, targetNameEl, attackNameEl, canvasHost, loop;
   const $ = id => document.getElementById(id);
   const objectOptions = [
@@ -80,21 +80,38 @@
     for(let i=0;i<150;i++){x.fillStyle='rgba(255,255,255,'+(.08+Math.random()*.2)+')';x.beginPath();x.ellipse(Math.random()*1024,Math.random()*512,8+Math.random()*38,2+Math.random()*7,Math.random(),0,Math.PI*2);x.fill();}
     const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t;
   }
+  function proceduralSurfaceTexture(type){
+    const c=document.createElement('canvas');c.width=1024;c.height=512;const x=c.getContext('2d');
+    const p=({Moon:['#a9adb5','#555963','#e1e3e6'],Mars:['#b95836','#652a20','#e59a65'],Saturn:['#c9b27d','#80674b','#eee0b5'],Sun:['#ff7b16','#b82b08','#ffe16a']})[type]||['#999','#444','#ddd'];
+    const g=x.createLinearGradient(0,0,0,512);g.addColorStop(0,p[2]);g.addColorStop(.48,p[0]);g.addColorStop(1,p[1]);x.fillStyle=g;x.fillRect(0,0,1024,512);
+    if(type==='Saturn'){for(let y=0;y<512;y++){x.fillStyle=y%17<5?'rgba(76,53,35,.22)':'rgba(255,242,204,.10)';x.fillRect(0,y,1024,1+Math.max(0,Math.sin(y*.12)*2));}const storm=x.createRadialGradient(680,245,2,680,245,58);storm.addColorStop(0,'rgba(115,67,38,.72)');storm.addColorStop(1,'rgba(190,142,91,0)');x.fillStyle=storm;x.fillRect(610,175,140,140);}
+    else {for(let i=0;i<(type==='Moon'?90:1600);i++){const a=Math.random()*1024,b=Math.random()*512,r=1+Math.random()*(type==='Moon'?20:15);x.fillStyle=i%3===0?'rgba(255,255,255,.12)':'rgba(20,20,20,.10)';x.beginPath();x.ellipse(a,b,r,r*(.35+Math.random()*.6),Math.random(),0,Math.PI*2);x.fill();}if(type==='Mars'){x.fillStyle='rgba(245,198,144,.62)';x.fillRect(0,0,1024,15);x.fillRect(0,497,1024,15);}}
+    const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;return tex;
+  }
+  function makeNebulaTexture(){
+    const c=document.createElement('canvas');c.width=512;c.height=512;const x=c.getContext('2d');
+    for(let i=0;i<18;i++){const a=60+Math.random()*392,b=60+Math.random()*392,r=40+Math.random()*120,g=x.createRadialGradient(a,b,2,a,b,r),color=['86,66,255','40,142,255','221,70,180','38,215,210'][i%4];g.addColorStop(0,'rgba('+color+',.20)');g.addColorStop(.55,'rgba('+color+',.07)');g.addColorStop(1,'rgba('+color+',0)');x.fillStyle=g;x.fillRect(a-r,b-r,r*2,r*2);}
+    const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;return tex;
+  }
   function buildTarget(type){
     if(!scene)return;
     if(targetGroup){scene.remove(targetGroup);targetGroup.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material){(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{if(m.map)m.map.dispose();m.dispose();});}});}
-    targetType=type;const data=opts[type];targetGroup=new THREE.Group();targetGroup.position.set(0,0,0);scene.add(targetGroup);satellites=[];
+    targetType=type;const data=opts[type];damageMarks=[];finalDestruction=null;targetMesh=null;targetGroup=new THREE.Group();targetGroup.position.set(0,0,0);scene.add(targetGroup);satellites=[];
     const mat=(color,rough=.8,metal=.02,extra={})=>new THREE.MeshStandardMaterial({color,roughness:rough,metalness:metal,...extra});
     if(type==='Earth'||type==='Moon'||type==='Mars'||type==='Saturn'||type==='Sun'){
       let material=mat(data.color,type==='Sun'?.4:.9,0,{emissive:type==='Sun'?0xff4b08:0x071222,emissiveIntensity:type==='Sun'?1.15:.08});
-      if(type==='Earth')material=mat(0xffffff,.86,.01,{map:earthTexture(),emissive:0x06213d,emissiveIntensity:.18});
+      if(type==='Earth')material=mat(0xffffff,.78,.01,{map:earthTexture(),emissive:0x06213d,emissiveIntensity:.14});
+      else if(type==='Moon'||type==='Mars'||type==='Saturn')material=mat(0xffffff,.92,.01,{map:proceduralSurfaceTexture(type),emissive:type==='Mars'?0x220600:0x080808,emissiveIntensity:.06});
+      else if(type==='Sun')material=mat(0xffffff,.38,0,{map:proceduralSurfaceTexture('Sun'),emissive:0xff4b08,emissiveIntensity:1.6});
       const sphere=new THREE.Mesh(new THREE.SphereGeometry(data.r,96,64),material);targetGroup.add(sphere);targetMesh=sphere;sphere.castShadow=true;
       const planetMaps={Earth:'https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg',Moon:'https://threejs.org/examples/textures/planets/moon_1024.jpg',Mars:'https://threejs.org/examples/textures/planets/mars_1k_color.jpg'};
-      if(planetMaps[type]){new THREE.TextureLoader().load(planetMaps[type],tex=>{if(targetMesh===sphere&&sphere.material){tex.colorSpace=THREE.SRGBColorSpace;sphere.material.map=tex;sphere.material.color.set(0xffffff);sphere.material.needsUpdate=true;}},undefined,err=>console.warn('Planet texture unavailable; using procedural fallback.',err));}
+      const textureLoader=new THREE.TextureLoader();
+      if(planetMaps[type])textureLoader.load(planetMaps[type],tex=>{if(targetMesh===sphere&&sphere.material){tex.colorSpace=THREE.SRGBColorSpace;sphere.material.map=tex;sphere.material.color.set(0xffffff);sphere.material.needsUpdate=true;}},undefined,()=>{});
+      if(type==='Earth'){textureLoader.load('https://threejs.org/examples/textures/planets/earth_normal_2048.jpg',tex=>{if(targetMesh===sphere&&sphere.material){sphere.material.normalMap=tex;sphere.material.normalScale.set(.55,.55);sphere.material.needsUpdate=true;}},undefined,()=>{});textureLoader.load('https://threejs.org/examples/textures/planets/earth_clouds_1024.png',tex=>{if(targetType==='Earth'&&targetGroup){tex.colorSpace=THREE.SRGBColorSpace;const cloud=targetGroup.children.find(o=>o.userData.cloudLayer);if(cloud){cloud.material.map=tex;cloud.material.wireframe=false;cloud.material.opacity=.38;cloud.material.needsUpdate=true;}}},undefined,()=>{});}
       if(type==='Earth'||type==='Mars')for(let i=0;i<(type==='Earth'?30:55);i++){const r=data.r*(.95+Math.random()*.045),a=Math.random()*Math.PI*2,b=Math.acos(2*Math.random()-1);const crater=new THREE.Mesh(new THREE.CircleGeometry(type==='Earth'?.018:.045,10),new THREE.MeshBasicMaterial({color:type==='Earth'?0x478d56:0x6d2c20,transparent:true,opacity:.28,side:THREE.DoubleSide}));crater.position.set(r*Math.sin(b)*Math.cos(a),r*Math.cos(b),r*Math.sin(b)*Math.sin(a));crater.lookAt(crater.position.clone().multiplyScalar(2));targetGroup.add(crater);}
       if(type==='Earth'){
         const atmo=new THREE.Mesh(new THREE.SphereGeometry(data.r*1.09,64,48),new THREE.MeshBasicMaterial({color:0x319bff,transparent:true,opacity:.13,side:THREE.BackSide,blending:THREE.AdditiveBlending,depthWrite:false}));targetGroup.add(atmo);
-        const cloud=new THREE.Mesh(new THREE.SphereGeometry(data.r*1.018,64,48),new THREE.MeshBasicMaterial({color:0xeaf7ff,transparent:true,opacity:.12,wireframe:true,depthWrite:false}));targetGroup.add(cloud);
+        const cloud=new THREE.Mesh(new THREE.SphereGeometry(data.r*1.018,64,48),new THREE.MeshBasicMaterial({color:0xeaf7ff,transparent:true,opacity:.13,wireframe:true,depthWrite:false}));cloud.userData.cloudLayer=true;targetGroup.add(cloud);
         const moon=new THREE.Mesh(new THREE.SphereGeometry(.18,24,16),mat(0xbec5d2));moon.position.set(4.3,.8,0);moon.userData.satellite=true;targetGroup.add(moon);satellites.push(moon);
       }
       if(type==='Saturn'){const r=new THREE.Mesh(new THREE.RingGeometry(data.r*1.25,data.r*1.9,128),new THREE.MeshStandardMaterial({color:0xdac79a,roughness:1,side:THREE.DoubleSide,transparent:true,opacity:.88}));r.rotation.x=1.27;targetGroup.add(r);}
@@ -131,9 +148,39 @@
   function chooseObject(type){buildTarget(type);}
   function addEffect(mesh,life,update){scene.add(mesh);effects.push({mesh,life,age:0,update});}
   function makeProjectile(color,r=.18){return new THREE.Mesh(new THREE.SphereGeometry(r,16,12),new THREE.MeshStandardMaterial({color,emissive:color,emissiveIntensity:1.4,metalness:.2,roughness:.3}));}
+  function addSurfaceDamage(power){
+    if(!targetGroup||!targetMesh||!['Earth','Moon','Mars','Saturn'].includes(targetType))return;
+    const radius=targetMesh.geometry?.parameters?.radius||opts[targetType].r;
+    const normal=new THREE.Vector3((Math.random()-.5)*1.25,(Math.random()-.5)*1.25,.48+Math.random()*.52).normalize();
+    const patch=new THREE.Group();patch.position.copy(normal.clone().multiplyScalar(radius*1.006));patch.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),normal);
+    const size=radius*(.055+power*.018);
+    const outer=new THREE.Mesh(new THREE.CircleGeometry(size*1.2,40),new THREE.MeshBasicMaterial({color:targetType==='Moon'?0x5b5149:0x7a321e,transparent:true,opacity:.58,depthWrite:false,side:THREE.DoubleSide}));
+    const inner=new THREE.Mesh(new THREE.CircleGeometry(size*.76,40),new THREE.MeshBasicMaterial({color:targetType==='Moon'?0x24262b:0x17191d,transparent:true,opacity:.84,depthWrite:false,side:THREE.DoubleSide}));
+    outer.position.z=.003;inner.position.z=.006;patch.add(outer,inner);
+    const rim=new THREE.Mesh(new THREE.TorusGeometry(size*.76,Math.max(.012,size*.12),8,48),new THREE.MeshStandardMaterial({color:targetType==='Moon'?0xc1b8a7:0xb45b34,roughness:1,transparent:true,opacity:.72}));rim.position.z=.009;patch.add(rim);
+    targetGroup.add(patch);damageMarks.push(patch);
+    if(damageMarks.length>24){const old=damageMarks.shift();targetGroup.remove(old);old.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose?.();});}
+  }
+  function beginFinalDestruction(){
+    if(finalDestruction||!targetGroup)return;
+    const duration=2.5,radius=opts[targetType].r;finalDestruction={age:0,duration,halves:[]};
+    if(targetMesh?.isMesh&&targetMesh.geometry?.type==='SphereGeometry'){
+      const r=targetMesh.geometry.parameters.radius||radius,material=targetMesh.material;
+      const a=new THREE.Mesh(new THREE.SphereGeometry(r,64,48,0,Math.PI,0,Math.PI),Array.isArray(material)?material.map(m=>m.clone()):material.clone());
+      const b=new THREE.Mesh(new THREE.SphereGeometry(r,64,48,0,Math.PI,0,Math.PI),Array.isArray(material)?material.map(m=>m.clone()):material.clone());
+      a.rotation.y=0;b.rotation.y=Math.PI;a.castShadow=b.castShadow=true;targetMesh.visible=false;targetGroup.add(a,b);finalDestruction.halves=[a,b];
+    }
+    const flash=new THREE.Mesh(new THREE.SphereGeometry(radius*.24,24,18),new THREE.MeshBasicMaterial({color:0xffdca0,transparent:true,opacity:.9,blending:THREE.AdditiveBlending,depthWrite:false}));
+    addEffect(flash,1.1,(o,t)=>{o.scale.setScalar(1+t*8);o.material.opacity=Math.max(0,.9-t*.8);});
+    const wave=new THREE.Mesh(new THREE.SphereGeometry(radius*.9,32,24),new THREE.MeshBasicMaterial({color:0xff6738,wireframe:true,transparent:true,opacity:.72,blending:THREE.AdditiveBlending,depthWrite:false}));
+    addEffect(wave,1.7,(o,t)=>{o.scale.setScalar(1+t*2.6);o.material.opacity=Math.max(0,.72-t*.42);});
+    const color=targetType==='Sun'?0xffbb57:targetType==='Earth'?0x6f8fbd:targetType==='Mars'?0xc86b48:0xaaaeb7;
+    for(let i=0;i<42;i++){const d=new THREE.Mesh(new THREE.IcosahedronGeometry(.045+Math.random()*.09,0),new THREE.MeshStandardMaterial({color,emissive:targetType==='Sun'?0xff5a12:0x21100a,roughness:.85}));const dir=new THREE.Vector3(Math.random()*2-1,Math.random()*2-1,Math.random()*2-1).normalize();d.position.copy(dir.clone().multiplyScalar(radius*(.65+Math.random()*.45)));d.userData.v=dir.multiplyScalar(.45+Math.random()*1.8);addEffect(d,2.6,(o,t)=>{o.position.addScaledVector(o.userData.v,.035);o.rotation.x+=.04;o.rotation.y+=.055;o.scale.setScalar(Math.max(.05,1-t/2.6));});}
+    if(statusEl)statusEl.textContent=targetType+' is breaking apart — animated fragments and shockwave in progress.';
+  }
   function launchAttack(){
     if(!active||!targetGroup||!targetGroup.visible){statusEl.textContent='Add an object at the fixed point before launching an attack.';return;}
-    const power=+ $('dlStrength').value;attackerLevel=power;
+    const power=+ $('dlStrength').value;attackerLevel=power;addSurfaceDamage(power);
     const baseDamage={1:5,2:10,3:17,4:26,5:38}[power];const scale=opts[targetType].hp/100;
     const damage=Math.min(hp,Math.round(baseDamage*scale*(attackKind==='moon'||attackKind==='supernova'?1.25:1)));
     hp=Math.max(0,hp-damage);updateHealth();attackNameEl.innerHTML='<strong>Impact:</strong> '+attackKind+' · strength '+power+'/5 · −'+damage+' integrity';
@@ -153,7 +200,7 @@
     // Brief luminous impact ring and restrained fragments; no object translation.
     const impact=new THREE.Mesh(new THREE.SphereGeometry(.22,16,12),new THREE.MeshBasicMaterial({color:0xffb85e,transparent:true,opacity:.8,blending:THREE.AdditiveBlending}));addEffect(impact,1.0,(o,t)=>{o.scale.setScalar(1+t*12);o.material.opacity=Math.max(0,.8-t*.8);});
     for(let i=0;i<Math.min(20,4+power*3);i++){const d=new THREE.Mesh(new THREE.IcosahedronGeometry(.035+Math.random()*.045,0),new THREE.MeshStandardMaterial({color:0xffa26a,emissive:0x7a1c08}));d.position.set((Math.random()-.5)*opts[targetType].r*2,(Math.random()-.5)*opts[targetType].r*2,(Math.random()-.5)*opts[targetType].r*2);d.userData.v=new THREE.Vector3((Math.random()-.5)*1.8,(Math.random()-.5)*1.8,(Math.random()-.5)*1.8);addEffect(d,2,(o,t)=>{o.position.addScaledVector(o.userData.v,.025);o.rotation.x+=.03;o.rotation.y+=.04;o.material.opacity=Math.max(0,1-t/2);});}
-    if(hp===0){targetGroup.visible=false;statusEl.textContent=targetType+' destroyed in this visual experiment. The display point is unchanged; press Restore to respawn it.';}
+    if(hp===0)beginFinalDestruction();
   }
   async function setupThree(){
     if(booted)return;booted=true;
@@ -166,7 +213,7 @@
       renderer=new THREE.WebGLRenderer({antialias:true,alpha:false});renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.3;canvasHost.appendChild(renderer.domElement);
       const Controls=await import('https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js');orbit=new Controls.OrbitControls(camera,renderer.domElement);orbit.enableDamping=true;orbit.minDistance=5;orbit.maxDistance=38;orbit.target.set(0,0,0);
       scene.add(new THREE.AmbientLight(0x8396c4,1.25));const key=new THREE.PointLight(0xffd8a0,140,60);key.position.set(-7,8,8);scene.add(key);const fill=new THREE.PointLight(0x3c75ff,55,45);fill.position.set(7,-3,-8);scene.add(fill);
-      const starGeo=new THREE.BufferGeometry(),pos=[];for(let i=0;i<5000;i++){const r=70+Math.random()*220,a=Math.random()*Math.PI*2,b=Math.acos(2*Math.random()-1);pos.push(r*Math.sin(b)*Math.cos(a),r*Math.cos(b),r*Math.sin(b)*Math.sin(a));}starGeo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));scene.add(new THREE.Points(starGeo,new THREE.PointsMaterial({color:0xc4d6ff,size:1.1,sizeAttenuation:false})));
+      const starGeo=new THREE.BufferGeometry(),pos=[];for(let i=0;i<5000;i++){const r=70+Math.random()*220,a=Math.random()*Math.PI*2,b=Math.acos(2*Math.random()-1);pos.push(r*Math.sin(b)*Math.cos(a),r*Math.cos(b),r*Math.sin(b)*Math.sin(a));}starGeo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));starField=new THREE.Points(starGeo,new THREE.PointsMaterial({color:0xc4d6ff,size:1.1,sizeAttenuation:false}));scene.add(starField);nebulaField=new THREE.Mesh(new THREE.PlaneGeometry(130,85),new THREE.MeshBasicMaterial({map:makeNebulaTexture(),transparent:true,opacity:.72,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending}));nebulaField.position.set(0,0,-55);scene.add(nebulaField);
       chooseObject('Earth');window.addEventListener('resize',resize);loop=animate;requestAnimationFrame(loop);window.COSMOSIMDestructionReady = true;
     }catch(err){
       console.error('COSMOSIM Destruction Lab failed to initialise:',err);
@@ -181,6 +228,8 @@
       if(targetGroup&&targetGroup.visible){targetGroup.rotation.y+=dt*(targetType==='Galaxy'?.08:.035);targetGroup.children.forEach(o=>{if(o.userData.satellite){o.position.x=Math.cos(frame*.55)*4.3;o.position.z=Math.sin(frame*.55)*4.3;}});}
       for(let i=effects.length-1;i>=0;i--){const e=effects[i];e.age+=dt;if(e.update)e.update(e.mesh,e.age);if(e.age>=e.life){scene.remove(e.mesh);e.mesh.traverse?.(o=>{if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose?.();});effects.splice(i,1);}}
       if(targetType==='Sun'&&targetGroup?.visible)targetGroup.children.forEach((o,i)=>{if(i>1&&o.material?.transparent)o.scale.setScalar(1+Math.sin(frame*2+i)*.018);});
+      if(finalDestruction&&targetGroup){finalDestruction.age+=dt;const t=finalDestruction.age,d=finalDestruction.duration;if(finalDestruction.halves.length===2){const a=finalDestruction.halves[0],b=finalDestruction.halves[1];a.position.x=-Math.max(0,t-.12)*1.55;a.position.y=-Math.max(0,t-.12)*.38;a.rotation.z=-t*.7;b.position.x=Math.max(0,t-.12)*1.8;b.position.y=Math.max(0,t-.12)*.58;b.rotation.z=t*.95;}else{targetGroup.scale.setScalar(Math.max(.015,1-t/d));targetGroup.rotation.z+=dt*.7;}if(t>=d){targetGroup.visible=false;finalDestruction=null;if(statusEl)statusEl.textContent=targetType+' destroyed. Choose Restore to rebuild the object at its fixed display point.';}}
+      if(starField){starField.rotation.y=frame*.0018;starField.rotation.x=Math.sin(frame*.08)*.006;}if(nebulaField)nebulaField.rotation.z=frame*.0012;
     }
     if(orbit)orbit.update();renderer.render(scene,camera);
   }
