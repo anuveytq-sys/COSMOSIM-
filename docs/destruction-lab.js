@@ -152,36 +152,84 @@
     if(!targetGroup||!targetMesh||!['Earth','Moon','Mars','Saturn'].includes(targetType))return;
     const geometry=targetMesh.geometry;
     const radius=geometry?.parameters?.radius||opts[targetType].r;
-    // Deform the actual high-resolution sphere at the exact local surface point hit by the attack.
     normal=normal?normal.clone().normalize():new THREE.Vector3(0,0,1);
-    const angularRadius=.18+power*.075;
-    const depth=radius*(.025+power*.025);
-    const craterRadius=radius*(.11+power*.055);
+    const angularRadius=.20+power*.075;
+    const depth=radius*(.035+power*.028);
+    const craterRadius=radius*angularRadius;
+    const profile=(angle)=>{
+      const q=angle/angularRadius;
+      const bowl=Math.exp(-q*q*4.2);
+      const rim=Math.exp(-Math.pow((q-.88)/.14,2));
+      return -depth*bowl+depth*.40*rim;
+    };
+    // Physically deform the actual sphere geometry, not just draw a decal on top.
     if(geometry?.attributes?.position){
       const position=geometry.attributes.position;
       for(let i=0;i<position.count;i++){
         const v=new THREE.Vector3(position.getX(i),position.getY(i),position.getZ(i));
-        const currentRadius=v.length();if(!currentRadius)continue;
-        const direction=v.clone().normalize();const dot=THREE.MathUtils.clamp(direction.dot(normal),-1,1);const angle=Math.acos(dot);
-        if(angle<angularRadius*1.18){
-          const q=angle/angularRadius;
-          const bowl=Math.exp(-q*q*4.2);
-          const rim=Math.exp(-Math.pow((q-.91)/.16,2));
-          const displacement=-depth*bowl+depth*.34*rim;
-          v.addScaledVector(direction,displacement);
+        const oldRadius=v.length();if(!oldRadius)continue;
+        const direction=v.clone().normalize();
+        const angle=Math.acos(THREE.MathUtils.clamp(direction.dot(normal),-1,1));
+        if(angle<angularRadius*1.12){
+          v.addScaledVector(direction,profile(angle));
           position.setXYZ(i,v.x,v.y,v.z);
         }
       }
-      position.needsUpdate=true;geometry.computeVertexNormals();geometry.computeBoundingSphere();
+      position.needsUpdate=true;
+      geometry.computeVertexNormals();
+      geometry.computeBoundingSphere();
     }
-    const patch=new THREE.Group();patch.position.copy(normal.clone().multiplyScalar(Math.max(radius*.88,radius-depth*.88)));patch.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),normal);
-    const size=craterRadius;
-    const outer=new THREE.Mesh(new THREE.CircleGeometry(size*1.2,40),new THREE.MeshBasicMaterial({color:targetType==='Moon'?0x5b5149:0x7a321e,transparent:true,opacity:.58,depthWrite:false,side:THREE.DoubleSide}));
-    const inner=new THREE.Mesh(new THREE.CircleGeometry(size*.76,40),new THREE.MeshBasicMaterial({color:targetType==='Moon'?0x24262b:0x17191d,transparent:true,opacity:.94,depthWrite:false,side:THREE.DoubleSide}));
-    outer.position.z=depth*.25;inner.position.z=depth*.45;patch.add(outer,inner);
-    const rim=new THREE.Mesh(new THREE.TorusGeometry(size*.76,Math.max(.018,size*.14),12,64),new THREE.MeshStandardMaterial({color:targetType==='Moon'?0xc1b8a7:0xb45b34,roughness:.95,metalness:.02,transparent:true,opacity:.9}));rim.position.z=depth*.92;patch.add(rim);
-    targetGroup.add(patch);damageMarks.push(patch);
-    if(damageMarks.length>24){const old=damageMarks.shift();targetGroup.remove(old);old.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose?.();});}
+    // Build a dense bowl mesh on the same spherical coordinates as the impact.
+    // It follows the deformed surface so the crater cannot float at a random offset.
+    const tangent=new THREE.Vector3().crossVectors(normal,new THREE.Vector3(0,1,0));
+    if(tangent.lengthSq()<.001)tangent.crossVectors(normal,new THREE.Vector3(1,0,0));
+    tangent.normalize();
+    const bitangent=new THREE.Vector3().crossVectors(normal,tangent).normalize();
+    const rings=28,segments=96,positions=[],colors=[],indices=[];
+    const innerColor=new THREE.Color(targetType==='Moon'?0x17191d:0x201710);
+    const midColor=new THREE.Color(targetType==='Moon'?0x514a43:(targetType==='Mars'?0x58271c:0x39251c));
+    const rimColor=new THREE.Color(targetType==='Moon'?0xc6b9a3:(targetType==='Mars'?0xb55b38:0x92714c));
+    const outerColor=new THREE.Color(targetType==='Moon'?0x77736d:(targetType==='Mars'?0x9c4730:0x46613e));
+    for(let ring=0;ring<=rings;ring++){
+      const q=ring/rings;
+      const angle=angularRadius*q;
+      const radial=normal.clone().multiplyScalar(Math.cos(angle));
+      for(let seg=0;seg<=segments;seg++){
+        const theta=seg/segments*Math.PI*2;
+        const direction=radial.clone()
+          .addScaledVector(tangent,Math.sin(angle)*Math.cos(theta))
+          .addScaledVector(bitangent,Math.sin(angle)*Math.sin(theta)).normalize();
+        const r=radius+profile(angle)+.004;
+        positions.push(direction.x*r,direction.y*r,direction.z*r);
+        let color;
+        if(q<.56)color=innerColor.clone().lerp(midColor,q/.56);
+        else if(q<.86)color=midColor.clone().lerp(rimColor,(q-.56)/.30);
+        else color=rimColor.clone().lerp(outerColor,(q-.86)/.14);
+        const roughnessVariation=1+(Math.sin(theta*17+ring*2.1)*.035);
+        color.multiplyScalar(roughnessVariation);
+        colors.push(color.r,color.g,color.b);
+      }
+    }
+    for(let ring=0;ring<rings;ring++){
+      for(let seg=0;seg<segments;seg++){
+        const a=ring*(segments+1)+seg,b=a+segments+1;
+        indices.push(a,b,a+1,b,b+1,a+1);
+      }
+    }
+    const craterGeometry=new THREE.BufferGeometry();
+    craterGeometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+    craterGeometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+    craterGeometry.setIndex(indices);
+    craterGeometry.computeVertexNormals();
+    const craterMaterial=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.98,metalness:.01,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
+    const crater=new THREE.Mesh(craterGeometry,craterMaterial);
+    crater.userData.impactCrater=true;
+    targetGroup.add(crater);
+    damageMarks.push(crater);
+    if(damageMarks.length>24){
+      const old=damageMarks.shift();targetGroup.remove(old);
+      old.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose?.();});
+    }
   }
   function beginFinalDestruction(){
     if(finalDestruction||!targetGroup)return;
