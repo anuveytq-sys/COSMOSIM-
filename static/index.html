@@ -967,23 +967,59 @@ function showDestructionFallback(){
  let root=document.getElementById("destructionFallback");
  if(!root){
   root=document.createElement("div");root.id="destructionFallback";
-  root.style.cssText="position:fixed;inset:0;z-index:100;background:radial-gradient(ellipse,#14234b,#030611 75%);color:#eef3ff;font:14px system-ui;padding:72px 12px 16px;overflow:auto";
-  root.innerHTML='<button id="dfExit" style="position:fixed;right:12px;top:12px;padding:10px;border-radius:12px">← Exit Lab</button><h2 style="text-align:center">🌌 DESTRUCTION LAB</h2><p id="dfStatus" style="text-align:center">Fallback controls active — the 3D module did not load.</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:12px;max-width:900px;margin:auto"><section style="padding:12px;background:#081329;border:1px solid #5c70b8;border-radius:14px"><h3>📍 Add object</h3><div id="dfObjects" style="display:grid;grid-template-columns:1fr 1fr;gap:6px"></div><p id="dfObject" style="font-size:24px;text-align:center">🌍 Earth</p><button id="dfRemove">Remove object</button> <button id="dfRestore">Restore</button></section><section style="padding:12px;background:#081329;border:1px solid #5c70b8;border-radius:14px"><h3>⚔️ Attackers</h3><div id="dfAttacks" style="display:grid;grid-template-columns:1fr 1fr;gap:6px"></div><label>Strength <b id="dfStrengthText">2/5</b></label><input id="dfStrength" type="range" min="1" max="5" value="2" style="width:100%"><p>Integrity: <b id="dfHpText">100%</b></p><div style="height:9px;background:#263451;border-radius:9px;overflow:hidden"><div id="dfHp" style="height:100%;width:100%;background:#55e4a2"></div></div><button id="dfLaunch" style="margin-top:10px;width:100%">▶ Launch attack</button></section></div>';
+  root.style.cssText="position:fixed;inset:0;z-index:100;background:radial-gradient(ellipse at 50% 48%,#101b42 0%,#030611 72%);color:#eef3ff;font:13px system-ui;padding:56px 10px 10px;overflow:hidden";
+  root.innerHTML=`
+  <style>
+  #dfSpace{position:absolute;inset:0;overflow:hidden;background-image:radial-gradient(1px 1px at 12% 22%,#fff 99%,transparent),radial-gradient(1px 1px at 72% 12%,#a9c7ff 99%,transparent),radial-gradient(2px 2px at 82% 70%,#fff 99%,transparent),radial-gradient(1px 1px at 24% 80%,#b9c9ff 99%,transparent),radial-gradient(1px 1px at 48% 17%,#fff 99%,transparent)}
+  #dfPlanet{position:absolute;left:58%;top:43%;width:min(36vw,310px);aspect-ratio:1;border-radius:50%;transform:translate(-50%,-50%);background:radial-gradient(circle at 28% 24%,#7ddcff 0%,#2368c7 27%,#0c3479 62%,#020818 78%);box-shadow:inset -26px -12px 45px #000c,0 0 32px #4c9dff88,0 0 75px #2563eb44;transition:background .25s,box-shadow .25s}
+  #dfPlanet:before{content:"";position:absolute;inset:0;border-radius:50%;background:linear-gradient(140deg,transparent 15%,#62ad5b 16% 22%,transparent 23% 32%,#4c914c 33% 44%,transparent 45% 57%,#a1ad62 58% 64%,transparent 65%),radial-gradient(ellipse at 30% 30%,#ffffff28,transparent 48%);clip-path:circle(50%)}
+  #dfPlanet:after{content:"";position:absolute;inset:-5%;border-radius:50%;border:2px solid #68baff55;box-shadow:0 0 22px #459aff55}
+  #dfPlanet.df-Moon{background:radial-gradient(circle at 30% 25%,#e2e4e9,#777f92 55%,#141a2a 78%);box-shadow:inset -22px -12px 35px #000c,0 0 24px #a7b5d977}
+  #dfPlanet.df-Mars{background:radial-gradient(circle at 30% 25%,#f3a079,#b64d30 52%,#36121b 80%);box-shadow:inset -22px -12px 35px #000c,0 0 28px #f06b4388}
+  #dfPlanet.df-Saturn{background:radial-gradient(circle at 30% 25%,#f5dfa0,#b18b4b 55%,#382a22 80%);box-shadow:inset -22px -12px 35px #000c,0 0 30px #f5d58a77}
+  #dfPlanet.df-Saturn:after{border:12px solid #d9c18a99;transform:scaleX(1.65) rotate(-20deg);border-radius:50%}
+  #dfPlanet.df-Sun{background:radial-gradient(circle at 38% 32%,#fff8bd,#ffae32 38%,#f04b15 70%,#8c180a 82%);box-shadow:0 0 45px #ff9d24,0 0 100px #f45c1788}
+  #dfPlanet.df-Black-Hole{background:radial-gradient(circle,#000 0 35%,#090414 37% 43%,#ffb05b 45%,#8d45ff 49%,#160c33 57%,transparent 70%);box-shadow:none}
+  #dfPlanet.df-Wormhole{background:repeating-radial-gradient(ellipse at center,#02030b 0 12px,#7e4aff 14px,#45e5ff 17px,#090a20 21px);box-shadow:0 0 45px #9862ff}
+  #dfPlanet.df-Galaxy{background:repeating-conic-gradient(from 10deg at 50% 50%,#14132c 0 12deg,#bca2ff 14deg,#283b80 18deg,#080c20 24deg);box-shadow:0 0 45px #957aff}
+  #dfPlanet.df-removed{opacity:.08;transform:translate(-50%,-50%) scale(.85)}
+  .df-panel{position:absolute;z-index:3;background:#071024eF;border:1px solid #6074b6a6;border-radius:13px;padding:10px;backdrop-filter:blur(12px);box-shadow:0 8px 30px #0007}
+  #dfObjectPanel{left:10px;right:10px;bottom:10px;max-height:22vh;overflow:auto}
+  #dfObjectList{display:flex;gap:6px;overflow-x:auto;padding:5px 0}
+  #dfObjectList button{flex:0 0 auto}
+  #dfAttackPanel{left:10px;top:66px;width:210px;max-height:43vh;overflow:auto}
+  #dfAttackList{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+  #dfStatusPanel{position:absolute;z-index:2;right:12px;top:65px;width:min(210px,35vw);padding:10px;background:#050b1bc9;border:1px solid #6376a855;border-radius:12px}
+  #dfObjectPanel button,#dfAttackPanel button{padding:7px 9px;font-size:11px;color:#eef3ff;background:#13213f;border:1px solid #364a79;border-radius:8px}
+  #dfObjectPanel button.active,#dfAttackPanel button.active{border-color:#a99aff;background:#332b61}
+  #dfAttackPanel .dfClose,#dfObjectPanel .dfClose{float:right;padding:3px 8px}
+  #dfProjectile{position:absolute;z-index:1;left:58%;top:43%;width:14px;height:14px;border-radius:50%;background:#ff7b48;box-shadow:0 0 18px 8px #ff654988;display:none}
+  #dfProjectile.go{display:block;animation:dfFly 1.3s ease-in forwards}
+  @keyframes dfFly{0%{transform:translate(110px,-170px) scale(.35);opacity:.1}55%{opacity:1}100%{transform:translate(-15px,0) scale(1.8);opacity:0}}
+  @media(max-width:600px){#dfPlanet{left:62%;top:42%;width:min(43vw,210px)}#dfAttackPanel{left:7px;top:57px;width:min(175px,48vw);max-height:37vh;padding:7px}#dfStatusPanel{right:7px;top:58px;width:min(145px,42vw);font-size:10px;padding:7px}#dfObjectPanel{left:7px;right:7px;bottom:7px;max-height:24vh;padding:7px}#dfObjectPanel h3,#dfAttackPanel h3{font-size:11px;margin:0}#dfProjectile{left:62%;top:42%}}
+  </style>
+  <div id="dfSpace"></div><div id="dfPlanet" aria-label="Selected object Earth"></div><div id="dfProjectile"></div>
+  <div style="position:absolute;z-index:4;top:10px;left:50%;transform:translateX(-50%);font-weight:900;letter-spacing:1.5px;white-space:nowrap;font-size:12px">🌌 COSMOSIM · DESTRUCTION LAB</div>
+  <button id="dfExit" style="position:absolute;z-index:5;right:10px;top:8px;padding:8px;border-radius:9px">← Exit</button>
+  <section id="dfAttackPanel" class="df-panel"><button class="dfClose" id="dfCloseAttack">×</button><h3>⚔️ ATTACKERS</h3><p style="color:#aab9dd;font-size:10px;margin:5px 0">Attacks approach from behind the object.</p><div id="dfAttackList"></div><label>Strength <b id="dfStrengthText">2/5</b></label><input id="dfStrength" type="range" min="1" max="5" value="2" style="width:100%"><button id="dfLaunch" style="width:100%;margin-top:7px">▶ Launch attack</button></section>
+  <section id="dfStatusPanel"><b id="dfObjectName">EARTH</b><div style="margin-top:5px">Integrity <b id="dfHpText">100%</b></div><div style="height:7px;background:#263451;border-radius:8px;margin-top:5px"><div id="dfHp" style="height:100%;width:100%;background:#55e4a2;border-radius:8px"></div></div><p id="dfStatus" style="font-size:10px;color:#adbee4">Earth is at the fixed display point.</p></section>
+  <section id="dfObjectPanel" class="df-panel"><button class="dfClose" id="dfCloseObjects">×</button><h3>📍 OBJECT BAY — choose what appears at centre</h3><div id="dfObjectList"></div><button id="dfRemove">− Remove object</button> <button id="dfRestore">↻ Restore</button></section>`;
   document.body.appendChild(root);
   const objs=[["Earth","🌍"],["Moon","🌕"],["Mars","🔴"],["Saturn","🪐"],["Sun","☀️"],["Black Hole","🕳️"],["Wormhole","🌀"],["Galaxy","🌌"]];
   const ats=["Alien assault","Asteroid barrage","Energy beam","Gravity pulse","Stellar shockwave","Antimatter pulse"];
-  let name="Earth",hp=100,removed=false,attack="Alien assault";
-  const draw=()=>{root.querySelector("#dfObject").textContent=(objs.find(x=>x[0]===name)?.[1]||"🌍")+" "+name+(removed?" (removed)":"");root.querySelector("#dfHpText").textContent=hp+"%";root.querySelector("#dfHp").style.width=hp+"%";root.querySelector("#dfStrengthText").textContent=root.querySelector("#dfStrength").value+"/5";};
-  objs.forEach(([n,icon])=>{const b=document.createElement("button");b.textContent=icon+" "+n;b.style.cssText="padding:8px 4px;font-size:12px";b.onclick=()=>{name=n;hp=100;removed=false;draw();};root.querySelector("#dfObjects").appendChild(b);});
-  ats.forEach(n=>{const b=document.createElement("button");b.textContent=n;b.style.cssText="padding:8px 4px;font-size:11px";b.onclick=()=>{attack=n;root.querySelector("#dfStatus").textContent="Selected attacker: "+attack;};root.querySelector("#dfAttacks").appendChild(b);});
-  root.querySelector("#dfStrength").oninput=draw;
-  root.querySelector("#dfLaunch").onclick=()=>{if(removed){root.querySelector("#dfStatus").textContent="Restore an object before launching an attack.";return;}const power=+root.querySelector("#dfStrength").value;hp=Math.max(0,hp-power*8);if(hp===0)removed=true;root.querySelector("#dfStatus").textContent=attack+" hit "+name+" at strength "+power+"/5.";draw();};
-  root.querySelector("#dfRemove").onclick=()=>{removed=true;draw();};
-  root.querySelector("#dfRestore").onclick=()=>{hp=100;removed=false;draw();};
+  let name="Earth",hp=100,removed=false,attack="Alien assault",power=2;
+  const planet=root.querySelector("#dfPlanet"), status=root.querySelector("#dfStatus");
+  const draw=()=>{planet.className="";planet.classList.add("df-"+name.replaceAll(" ","-"));if(removed)planet.classList.add("df-removed");planet.setAttribute("aria-label",name);root.querySelector("#dfObjectName").textContent=name.toUpperCase();root.querySelector("#dfHpText").textContent=hp+"%";root.querySelector("#dfHp").style.width=hp+"%";root.querySelector("#dfHp").style.background=hp<25?"#ff526e":hp<55?"#f4b64b":"#55e4a2";root.querySelector("#dfStrengthText").textContent=power+"/5";};
+  objs.forEach(([n,icon])=>{const b=document.createElement("button");b.textContent=icon+" "+n;b.onclick=()=>{name=n;hp=100;removed=false;draw();status.textContent=name+" displayed at the fixed centre point.";root.querySelectorAll("#dfObjectList button").forEach(x=>x.classList.toggle("active",x===b));};root.querySelector("#dfObjectList").appendChild(b);if(n==="Earth")b.classList.add("active");});
+  ats.forEach(n=>{const b=document.createElement("button");b.textContent=n;b.onclick=()=>{attack=n;status.textContent="Selected attacker: "+attack;root.querySelectorAll("#dfAttackList button").forEach(x=>x.classList.toggle("active",x===b));};root.querySelector("#dfAttackList").appendChild(b);if(n===attack)b.classList.add("active");});
+  root.querySelector("#dfStrength").oninput=e=>{power=+e.target.value;draw();};
+  root.querySelector("#dfLaunch").onclick=()=>{if(removed){status.textContent="Restore an object before attacking.";return;}hp=Math.max(0,hp-power*8);if(hp===0)removed=true;draw();status.textContent=attack+" launched at strength "+power+"/5.";const p=root.querySelector("#dfProjectile");p.classList.remove("go");void p.offsetWidth;p.style.display="block";p.classList.add("go");setTimeout(()=>{p.classList.remove("go");p.style.display="none";},1400);};
+  root.querySelector("#dfRemove").onclick=()=>{removed=true;draw();status.textContent="Object removed from its fixed point.";};
+  root.querySelector("#dfRestore").onclick=()=>{hp=100;removed=false;draw();status.textContent=name+" restored at the fixed point.";};
+  root.querySelector("#dfCloseAttack").onclick=()=>{root.querySelector("#dfAttackPanel").style.display="none";let b=root.querySelector("#dfReopenAttackFloating");if(!b){b=document.createElement("button");b.id="dfReopenAttackFloating";b.textContent="＋ Attackers";b.style.cssText="position:absolute;z-index:5;left:10px;top:66px;padding:8px;border-radius:9px";b.onclick=()=>{root.querySelector("#dfAttackPanel").style.display="block";b.remove();};root.appendChild(b);}};
+  root.querySelector("#dfCloseObjects").onclick=()=>{root.querySelector("#dfObjectPanel").style.display="none";let b=document.createElement("button");b.id="dfReopenObjects";b.textContent="＋ Object Bay";b.style.cssText="position:absolute;z-index:5;left:10px;bottom:24vh";b.onclick=()=>{root.querySelector("#dfObjectPanel").style.display="block";b.remove();};root.appendChild(b);};
   root.querySelector("#dfExit").onclick=()=>{root.remove();document.body.classList.remove("hud-hidden");chooseSim("blackhole");};
   draw();
- }
- root.style.display="block";
 }
 function chooseSim(id){
  if(id==="destruction"){
