@@ -202,7 +202,7 @@
       const b=e.target.closest('.simChoice');if(!b)return;
       if(b.dataset.sim==='destruction'){
         e.preventDefault();e.stopImmediatePropagation();
-        try{if(!booted){await setupThree();}enterMode();}catch(err){if(canvasHost&&objectPanel){enterMode();if(statusEl)statusEl.textContent='The control panels loaded, but the 3D engine failed: '+(err&&err.message?err.message:String(err))+'. Check connection and reload.';}else{console.error(err);}}return;
+        try{if(!booted){await setupThree();}enterMode();}catch(err){if(canvasHost&&objectPanel){enterMode();if(statusEl)statusEl.textContent='The 3D engine failed; showing the built-in space scene instead.';}else{console.error(err);}if(typeof window.showDestructionFallback==='function')window.showDestructionFallback();}return;
       }
       if(active){e.preventDefault();e.stopImmediatePropagation();exitMode();setTimeout(()=>b.click(),0);}
     },true);
@@ -214,8 +214,9 @@
       console.error('Destruction Lab startup failed',err);
       if(canvasHost && objectPanel) {
         enterMode();
-        if(statusEl) statusEl.textContent='3D engine failed to start: '+(err&&err.message?err.message:String(err))+'. The control panels remain available; check your connection and reload.';
+        if(statusEl) statusEl.textContent='3D engine failed to start: '+(err&&err.message?err.message:String(err))+'. Showing the built-in space scene instead.';
       }
+      if(typeof window.showDestructionFallback==='function') window.showDestructionFallback();
     }
   };
   function onReady(){attachMenu();}
