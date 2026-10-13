@@ -1020,6 +1020,7 @@ function showDestructionFallback(){
   root.querySelector("#dfCloseObjects").onclick=()=>{root.querySelector("#dfObjectPanel").style.display="none";let b=document.createElement("button");b.id="dfReopenObjects";b.textContent="＋ Object Bay";b.style.cssText="position:absolute;z-index:5;left:10px;bottom:24vh";b.onclick=()=>{root.querySelector("#dfObjectPanel").style.display="block";b.remove();};root.appendChild(b);};
   root.querySelector("#dfExit").onclick=()=>{root.remove();document.body.classList.remove("hud-hidden");chooseSim("blackhole");};
   draw();
+ }
 }
 function chooseSim(id){
  if(id==="destruction"){
