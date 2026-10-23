@@ -27,6 +27,10 @@ jobs:
           set -euo pipefail
           mkdir -p _site
           cp static/index.html _site/index.html
+          cp manifest.webmanifest _site/manifest.webmanifest
+          cp sw.js _site/sw.js
+          mkdir -p _site/icons
+          cp icons/app.svg _site/icons/app.svg
           cp static/interstellar-flight.js _site/interstellar-flight.js
           cp docs/destruction-lab.js _site/destruction-lab.js
           cp docs/destruction-object-effects.js _site/destruction-object-effects.js
