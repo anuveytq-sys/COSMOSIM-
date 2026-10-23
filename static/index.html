@@ -71,6 +71,15 @@ body.hud-hidden #simControls,body.hud-hidden #simInfo{display:none!important}
 }
 
 </style>
+
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icons/app.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./icons/app.svg">
+  <meta name="theme-color" content="#07091b">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="COSMOSIM">
 </head>
 <body>
 <div id="space"></div>
@@ -1288,6 +1297,12 @@ function animate(){
 }
 animate();
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);composer.setSize(innerWidth,innerHeight);bloomPass.setSize(innerWidth,innerHeight)});
+</script>
+
+<script>
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(err => console.warn('App shell registration unavailable:', err)));
+}
 </script>
 </body>
 </html>
