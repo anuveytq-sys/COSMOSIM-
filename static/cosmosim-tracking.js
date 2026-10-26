@@ -70,19 +70,21 @@
       <button id="ctCalibrate" type="button" disabled>Calibrate center</button>
       <button id="ctMode" type="button" disabled>Pointer mode: HEAD</button>
       <button id="ctBlink" type="button" disabled>Blink confirm: OFF</button>
+      <button id="ctDwell" type="button" disabled>Dwell scroll: OFF</button>
       <button id="ctPause" type="button" disabled>Pause tracking</button>
       <button id="ctStop" type="button" disabled>Stop camera</button>
     </div>
-    <p class="ct-note">Tip: allow camera access, look at the center of the screen, then select Calibrate center. Deliberately close both eyes for about 0.12–0.85 seconds and reopen to click. Ordinary short blinks are ignored. Camera access requires HTTPS or localhost.</p>
+    <p class="ct-note">Tip: allow camera access, look at the center of the screen, then select Calibrate center. With Blink confirm ON, a detected blink clicks the control beneath the pointer. For dwell scrolling, hold the pointer near the top or bottom edge of a scrollable panel. Camera access requires HTTPS or localhost.</p>
   `;
   document.body.appendChild(dialog);
 
   const video = $('#ctVideo'), previewLabel = $('#ctPreviewLabel'), status = $('#ctStatus');
   const startButton = $('#ctStart'), calibrateButton = $('#ctCalibrate'), modeButton = $('#ctMode');
-  const blinkButton = $('#ctBlink'), pauseButton = $('#ctPause'), stopButton = $('#ctStop');
-  let stream = null, landmarker = null, raf = 0, paused = false, blinkConfirm = false;
+  const blinkButton = $('#ctBlink'), dwellButton = $('#ctDwell'), pauseButton = $('#ctPause'), stopButton = $('#ctStop');
+  let stream = null, landmarker = null, raf = 0, paused = false, blinkConfirm = false, dwellScroll = false;
   let baseline = null, smoothed = null, eyeBaseline = null, eyeSmoothed = null;
   let pointerMode = 'head', closedAt = 0, lastFrameAt = 0, lastConfirmAt = 0, blinkConsumed = false;
+  let dwellTarget = null, dwellDirection = 0, dwellStartedAt = 0, lastDwellScrollAt = 0;
   let pointer = null, pointerX = innerWidth / 2, pointerY = innerHeight / 2;
 
   function say(message, active = false) {
@@ -109,16 +111,18 @@
     calibrateButton.disabled = !active;
     modeButton.disabled = !active;
     blinkButton.disabled = !active;
+    dwellButton.disabled = !active;
     pauseButton.disabled = !active;
     stopButton.disabled = !active;
     startButton.disabled = active;
     modeButton.textContent = 'Pointer mode: ' + (pointerMode === 'head' ? 'HEAD' : 'EYE GAZE');
     blinkButton.textContent = 'Blink confirm: ' + (blinkConfirm ? 'ON' : 'OFF');
+    dwellButton.textContent = 'Dwell scroll: ' + (dwellScroll ? 'ON' : 'OFF');
     pauseButton.textContent = paused ? 'Resume tracking' : 'Pause tracking';
   }
   function safeConfirmAtPointer() {
     const now = performance.now();
-    if (now - lastConfirmAt < 850) return;
+    if (now - lastConfirmAt < 420) return;
     lastConfirmAt = now;
     const hit = document.elementFromPoint(pointerX, pointerY);
     if (!hit) { say('No control under the pointer.'); return; }
@@ -155,6 +159,46 @@
       say('Could not activate that control; try a direct touch or click.');
     }
   }
+  function findScrollableAtPointer() {
+    const nodes = document.elementsFromPoint(pointerX, pointerY);
+    for (const node of nodes) {
+      if (!node || node === pointer) continue;
+      let current = node;
+      while (current && current !== document.body) {
+        if (current instanceof HTMLElement) {
+          const style = getComputedStyle(current);
+          const canScroll = /(auto|scroll|overlay)/.test(style.overflowY) && current.scrollHeight > current.clientHeight + 4;
+          if (canScroll) return current;
+        }
+        current = current.parentElement;
+      }
+    }
+    return null;
+  }
+
+  function updateDwellScroll(now) {
+    if (!dwellScroll || !stream || paused || !baseline || !pointer) {
+      dwellTarget = null; dwellDirection = 0; dwellStartedAt = 0;
+      return;
+    }
+    const target = findScrollableAtPointer();
+    if (!target) { dwellTarget = null; dwellDirection = 0; dwellStartedAt = 0; return; }
+    const rect = target.getBoundingClientRect();
+    const edge = Math.min(64, Math.max(28, rect.height * 0.18));
+    let direction = 0;
+    if (pointerY <= rect.top + edge && target.scrollTop > 0) direction = -1;
+    else if (pointerY >= rect.bottom - edge && target.scrollTop + target.clientHeight < target.scrollHeight - 1) direction = 1;
+    if (!direction) { dwellTarget = null; dwellDirection = 0; dwellStartedAt = 0; return; }
+    if (target !== dwellTarget || direction !== dwellDirection) {
+      dwellTarget = target; dwellDirection = direction; dwellStartedAt = now; lastDwellScrollAt = now;
+      return;
+    }
+    if (now - dwellStartedAt < 300) return;
+    const elapsed = Math.min(50, now - lastDwellScrollAt);
+    lastDwellScrollAt = now;
+    target.scrollTop += direction * Math.max(4, elapsed * 0.72);
+  }
+
   function blendshape(categories, name) {
     const entry = categories && categories.find(item => item.categoryName === name);
     return entry ? entry.score : 0;
@@ -208,9 +252,15 @@
             const left = blendshape(categories, 'eyeBlinkLeft'), right = blendshape(categories, 'eyeBlinkRight');
             const closed = (left + right) / 2 > 0.38 && Math.min(left, right) > 0.18;
             if (closed && closedAt === 0) { closedAt = now; blinkConsumed = false; }
+            if (closed && blinkConfirm && !blinkConsumed && closedAt > 0 && now - closedAt >= 70) {
+              blinkConsumed = true;
+              if (pointer) pointer.classList.add('is-confirming');
+              safeConfirmAtPointer();
+              setTimeout(() => pointer && pointer.classList.remove('is-confirming'), 220);
+            }
             if (!closed && closedAt > 0) {
               const duration = now - closedAt;
-              if (blinkConfirm && !blinkConsumed && duration >= 120 && duration <= 850) {
+              if (blinkConfirm && !blinkConsumed && duration >= 45 && duration <= 1100) {
                 blinkConsumed = true;
                 if (pointer) pointer.classList.add('is-confirming');
                 safeConfirmAtPointer();
@@ -226,6 +276,7 @@
         }
       }
     }
+    updateDwellScroll(performance.now());
     raf = requestAnimationFrame(tick);
   }
 
@@ -260,7 +311,8 @@
   }
   async function stopCamera(message = 'CAMERA OFF · VIDEO STREAM RELEASED') {
     if (raf) cancelAnimationFrame(raf);
-    raf = 0; paused = false; blinkConfirm = false; closedAt = 0; blinkConsumed = false;
+    raf = 0; paused = false; blinkConfirm = false; dwellScroll = false; closedAt = 0; blinkConsumed = false;
+    dwellTarget = null; dwellDirection = 0; dwellStartedAt = 0;
     if (stream) stream.getTracks().forEach(track => track.stop());
     stream = null; video.pause(); video.srcObject = null;
     video.classList.remove('ct-live'); previewLabel.hidden = false; previewLabel.textContent = 'CAMERA OFF';
@@ -297,6 +349,12 @@
     blinkButton.textContent = 'Blink confirm: ' + (blinkConfirm ? 'ON' : 'OFF');
     say(blinkConfirm ? 'BLINK CONFIRM ON · DELIBERATE BLINK TO CLICK' : 'BLINK CONFIRM OFF · POINTER STILL TRACKS');
   });
+  dwellButton.addEventListener('click', () => {
+    dwellScroll = !dwellScroll;
+    dwellButton.textContent = 'Dwell scroll: ' + (dwellScroll ? 'ON' : 'OFF');
+    dwellTarget = null; dwellDirection = 0; dwellStartedAt = 0;
+    say(dwellScroll ? 'DWELL SCROLL ON · HOLD POINTER AT A PANEL EDGE' : 'DWELL SCROLL OFF');
+  });
   pauseButton.addEventListener('click', () => {
     if (!stream) return;
     paused = !paused;
@@ -305,6 +363,7 @@
       if (raf) cancelAnimationFrame(raf);
       raf = 0;
       if (pointer) pointer.classList.remove('is-active');
+      dwellTarget = null; dwellDirection = 0; dwellStartedAt = 0;
       say('TRACKING PAUSED · CAMERA STILL ON');
     } else {
       say('TRACKING RESUMED · RECALIBRATE IF NEEDED', true);
