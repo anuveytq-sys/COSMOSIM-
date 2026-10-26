@@ -129,9 +129,17 @@
     }
     // Never let an involuntary blink execute the text command form. Other existing
     // COSMOSIM buttons, including pause and simulation selection, remain available.
-    if (control.matches('form button[type="submit"],form input[type="submit"]')) {
-      say('For safety, submit the command with a deliberate touch or click.');
+    const commandSubmit = control.matches('#commandForm button[type="submit"],#commandForm input[type="submit"]');
+    if (control.matches('form button[type="submit"],form input[type="submit"]') && !commandSubmit) {
+      say('This submit control requires a deliberate touch or click.');
       return;
+    }
+    if (commandSubmit) {
+      const commandInput = $('#command');
+      if (!commandInput || !commandInput.value.trim()) {
+        say('Enter a simulation command first, then blink while the Execute button is under the pointer.');
+        return;
+      }
     }
     try {
       control.focus({ preventScroll: true });
