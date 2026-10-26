@@ -70,7 +70,7 @@
       <button id="ctCalibrate" type="button" disabled>Calibrate center</button>
       <button id="ctMode" type="button" disabled>Pointer mode: HEAD</button>
       <button id="ctBlink" type="button" disabled>Blink confirm: OFF</button>
-      <button id="ctDwell" type="button" disabled>Dwell scroll: OFF</button>
+      <button id="ctDwell" type="button" disabled>Dwell scroll / panel scroll: OFF</button>
       <button id="ctPause" type="button" disabled>Pause tracking</button>
       <button id="ctStop" type="button" disabled>Stop camera</button>
     </div>
@@ -123,7 +123,7 @@
     startButton.disabled = active;
     modeButton.textContent = 'Pointer mode: ' + (pointerMode === 'head' ? 'HEAD' : 'EYE GAZE');
     blinkButton.textContent = 'Blink confirm: ' + (blinkConfirm ? 'ON' : 'OFF');
-    dwellButton.textContent = 'Dwell scroll: ' + (dwellScroll ? 'ON' : 'OFF');
+    dwellButton.textContent = 'Dwell scroll / panel scroll: ' + (dwellScroll ? 'ON' : 'OFF');
     pauseButton.textContent = paused ? 'Resume tracking' : 'Pause tracking';
   }
   function safeConfirmAtPointer() {
@@ -357,7 +357,7 @@
   });
   dwellButton.addEventListener('click', () => {
     dwellScroll = !dwellScroll;
-    dwellButton.textContent = 'Dwell scroll: ' + (dwellScroll ? 'ON' : 'OFF');
+    dwellButton.textContent = 'Dwell scroll / panel scroll: ' + (dwellScroll ? 'ON' : 'OFF');
     dwellTarget = null; dwellDirection = 0; dwellStartedAt = 0;
     say(dwellScroll ? 'DWELL SCROLL ON · HOLD POINTER AT A PANEL EDGE' : 'DWELL SCROLL OFF');
   });
