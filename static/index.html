@@ -193,6 +193,31 @@ const bloomPass=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),1.
 composer.addPass(bloomPass);
 const controls=new OrbitControls(camera,renderer.domElement);
 controls.enableDamping=true;controls.minDistance=4.5;controls.maxDistance=85;controls.rotateSpeed=.62;controls.zoomSpeed=.85;
+// Gentle cursor-driven rotation for hands-free exploration. Panel controls and drag gestures
+// are excluded so this supplements, rather than replaces, the existing OrbitControls.
+let lastCursorRotateAt = 0;
+function rotateSimulationFromCursor(x, y, dx, dy, dragging = false) {
+ if (dragging || !Number.isFinite(dx) || !Number.isFinite(dy)) return;
+ const target = document.elementFromPoint(x, y);
+ if (!target || target.closest('.panel,#spaceMenu,#simControls,#simInfo,#top,#hudToggle,#cosmosimTrackingDialog,button,input,select,textarea,a')) return;
+ if (!root.contains(target) && target !== root) return;
+ const now = performance.now();
+ if (now - lastCursorRotateAt < 10) return;
+ lastCursorRotateAt = now;
+ const sx = Math.max(-28, Math.min(28, dx));
+ const sy = Math.max(-28, Math.min(28, dy));
+ scene.rotation.y += sx * 0.0022;
+ scene.rotation.x += sy * 0.0016;
+ scene.rotation.x = Math.max(-0.55, Math.min(0.55, scene.rotation.x));
+}
+renderer.domElement.addEventListener('pointermove', event => {
+ if (event.buttons) return; // Keep click-drag orbiting exactly as before.
+ rotateSimulationFromCursor(event.clientX, event.clientY, event.movementX || 0, event.movementY || 0);
+});
+window.addEventListener('cosmosim-tracking-move', event => {
+ const d = event.detail || {};
+ rotateSimulationFromCursor(d.x, d.y, (d.dx || 0) * 0.72, (d.dy || 0) * 0.72);
+});
 scene.add(new THREE.AmbientLight(0x667799,1.2));
 const light=new THREE.PointLight(0xffa05a,180,70);scene.add(light);
 
@@ -1304,6 +1329,6 @@ if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(err => console.warn('App shell registration unavailable:', err)));
 }
 </script>
-<script src="./cosmosim-tracking.js?v=20261026-1" defer></script>
+<script src="./cosmosim-tracking.js?v=20261026-2" defer></script>
 </body>
 </html>
