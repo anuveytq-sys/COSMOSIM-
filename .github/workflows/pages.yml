@@ -27,6 +27,7 @@ jobs:
           set -euo pipefail
           mkdir -p _site
           cp static/index.html _site/index.html
+          cp static/cosmosim-tracking.js _site/cosmosim-tracking.js
           cp manifest.webmanifest _site/manifest.webmanifest
           cp sw.js _site/sw.js
           mkdir -p _site/icons
