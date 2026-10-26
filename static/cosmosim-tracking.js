@@ -100,12 +100,18 @@
     return pointer;
   }
   function updatePointer(x, y) {
+    const previousX = pointerX, previousY = pointerY;
     pointerX = Math.max(8, Math.min(innerWidth - 8, x));
     pointerY = Math.max(8, Math.min(innerHeight - 8, y));
     const node = ensurePointer();
     node.style.left = pointerX + 'px';
     node.style.top = pointerY + 'px';
     node.classList.add('is-active');
+    if (Math.abs(pointerX - previousX) + Math.abs(pointerY - previousY) > 0.5) {
+      window.dispatchEvent(new CustomEvent('cosmosim-tracking-move', {
+        detail: { x: pointerX, y: pointerY, dx: pointerX - previousX, dy: pointerY - previousY }
+      }));
+    }
   }
   function setButtons(active) {
     calibrateButton.disabled = !active;
