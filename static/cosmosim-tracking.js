@@ -25,7 +25,7 @@
     #cosmosimTrackingDialog .ct-actions button:disabled{opacity:.4;cursor:not-allowed}
     #cosmosimTrackingDialog .ct-note{color:#9caccd;font-size:10px;margin:11px 0 0}
     #cosmosimTrackingDialog .ct-close{flex:0 0 auto!important;min-height:32px!important;padding:5px 9px!important}
-    .cosmosim-tracking-pointer{position:fixed;z-index:10000;width:19px;height:19px;border:2px solid #72f2ff;border-radius:50%;box-shadow:0 0 0 5px #72f2ff22,0 0 18px #42dfffaa;transform:translate(-50%,-50%);pointer-events:none;display:none;will-change:left,top}
+    .cosmosim-tracking-pointer{position:fixed;z-index:10002;width:19px;height:19px;border:2px solid #72f2ff;border-radius:50%;box-shadow:0 0 0 5px #72f2ff22,0 0 18px #42dfffaa;transform:translate(-50%,-50%);pointer-events:none;display:none;will-change:left,top}
     .cosmosim-tracking-pointer.is-active{display:block}
     .cosmosim-tracking-pointer:after{content:"";position:absolute;inset:5px;border-radius:50%;background:#72f2ff}
     .cosmosim-tracking-pointer.is-confirming{border-color:#8fffc9;box-shadow:0 0 0 8px #8fffc933,0 0 22px #8fffc9cc}
