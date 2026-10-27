@@ -45,6 +45,12 @@
         <div class="ai-window">
           <div class="ai-head"><h2 id="cosmosimAiDialogTitle">✦ COSMOSIM SPACE AI</h2><button type="button" class="ai-close" id="cosmosimAiClose" aria-label="Close Space AI">✕ Close</button></div>
           <section id="cosmosimAiSection" aria-label="OpenRouter AI settings and space assistant">
+            <h3>ASK COSMOSIM SPACE AI</h3>
+            <label for="cosmosimAiQuestion">Your space question</label>
+            <textarea id="cosmosimAiQuestion" maxlength="4000" placeholder="Why do black holes have an event horizon?"></textarea>
+            <div class="ai-actions"><button type="button" class="ai-primary" id="cosmosimAiAsk">Ask COSMOSIM AI ↗</button><button type="button" id="cosmosimAiClearAnswer">Clear answer</button></div>
+            <div class="ai-answer" id="cosmosimAiAnswer" aria-live="polite"></div>
+            <hr style="border:0;border-top:1px solid #303d61;margin:17px 0">
             <h3>OPENROUTER CONNECTION</h3>
             <p class="ai-copy">Use your own OpenRouter API key. The key is stored in this browser only and sent to your configured backend when you test or ask a question.</p>
             <label for="cosmosimAiKey">OpenRouter API key</label>
@@ -61,12 +67,6 @@
             </div>
             <div class="ai-status" id="cosmosimAiStatus" role="status" aria-live="polite">Not connected · enter your key and backend URL.</div>
             <p class="ai-copy" id="cosmosimAiSecurityNote">Security: browser storage is not encrypted. Avoid shared devices and never commit your key to GitHub. OpenRouter usage may incur costs.</p>
-            <hr style="border:0;border-top:1px solid #303d61;margin:17px 0">
-            <h3>ASK COSMOSIM SPACE AI</h3>
-            <label for="cosmosimAiQuestion">Your space question</label>
-            <textarea id="cosmosimAiQuestion" maxlength="4000" placeholder="Why do black holes have an event horizon?"></textarea>
-            <div class="ai-actions"><button type="button" class="ai-primary" id="cosmosimAiAsk">Ask COSMOSIM AI ↗</button><button type="button" id="cosmosimAiClearAnswer">Clear answer</button></div>
-            <div class="ai-answer" id="cosmosimAiAnswer" aria-live="polite"></div>
           </section>
         </div>`;
       document.body.appendChild(dialog);
