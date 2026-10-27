@@ -27,11 +27,17 @@
 
   function init() {
     const dialog = $('#cosmosimTrackingDialog');
-    if (!dialog || $('#cosmosimAiSection')) return false;
+    if (!dialog) return false;
 
-    const section = document.createElement('section');
-    section.id = 'cosmosimAiSection';
-    section.innerHTML = `
+    // Recover gracefully if an earlier cached script placed the section outside the dialog.
+    let section = $('#cosmosimAiSection');
+    if (section) {
+      if (section.parentElement !== dialog) dialog.appendChild(section);
+      if (section.dataset.cosmosimAiInitialized === 'true') return true;
+    } else {
+      section = document.createElement('section');
+      section.id = 'cosmosimAiSection';
+      section.innerHTML = `
       <h3>✦ COSMOSIM SPACE AI</h3>
       <p class="ai-copy">Connect your own OpenRouter key to ask questions about planets, black holes, astrophysics, missions, and the universe. The key is stored only in this browser's local storage and sent to the configured Render proxy when you test or ask a question.</p>
       <label for="cosmosimAiKey">OpenRouter API key</label>
@@ -52,10 +58,11 @@
       <div class="ai-actions"><button type="button" class="ai-primary" id="cosmosimAiAsk">Ask COSMOSIM AI ↗</button><button type="button" id="cosmosimAiClearAnswer">Clear answer</button></div>
       <div class="ai-answer" id="cosmosimAiAnswer" aria-live="polite"></div>
     `;
+    }
 
-    // Add AI controls after existing tracking controls without replacing them.
-    const note = $('.ct-note', dialog);
-    (note || dialog.lastElementChild || dialog).insertAdjacentElement('afterend', section);
+    // Always keep the AI controls inside the scrollable settings dialog.
+    if (section.parentElement !== dialog) dialog.appendChild(section);
+    section.dataset.cosmosimAiInitialized = 'true';
 
     const keyInput = $('#cosmosimAiKey', section);
     const modelInput = $('#cosmosimAiModel', section);
