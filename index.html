@@ -1225,7 +1225,7 @@ addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updat
 </script>
 <script type="module" src="./static/interstellar-flight.js?v=91dedc9"></script>
 <script src="./static/cosmosim-tracking.js?v=20261027-4" defer></script>
-<script src="./static/cosmosim-space-ai.js?v=openrouter-6" defer></script>
+<script src="./static/cosmosim-space-ai.js?v=openrouter-7" defer></script>
 <style>
   #cosmosimAiEmergencyPanel{position:fixed;z-index:2147483000;inset:0;display:flex;align-items:center;justify-content:center;padding:12px;background:rgba(1,4,14,.88);color:#eef2ff;font:13px/1.5 system-ui,Arial}
   #cosmosimAiEmergencyPanel[hidden]{display:none!important}
@@ -1261,11 +1261,13 @@ addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updat
     }
     panel.hidden=false;
   }
+  // Expose a direct entry point for the dynamically-created AI button.
+  // This works even if the separate Space AI script fails to load.
+  window.cosmosimOpenSpaceAIPanel = openSpaceAIPanel;
   document.addEventListener('click',function(event){
     var button=event.target&&event.target.closest?event.target.closest('#cosmosimAiQuickButton'):null;
     if(!button)return;
     event.preventDefault();
-    event.stopPropagation();
     openSpaceAIPanel();
   },true);
 })();
