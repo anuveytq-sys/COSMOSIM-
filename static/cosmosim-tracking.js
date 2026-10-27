@@ -6,6 +6,7 @@
   const style = document.createElement('style');
   style.textContent = `
     #cosmosimSettingsButton{min-width:40px;height:40px;padding:8px 10px;font-size:18px;line-height:1;background:linear-gradient(135deg,#263657,#43517c);border:1px solid #7d91c7;box-shadow:0 0 16px #5e75ff22}
+    #cosmosimAiQuickButton{min-height:40px;padding:8px 11px;font-size:12px;line-height:1;background:linear-gradient(135deg,#6558ff,#a348e9);border:1px solid #a99bff;box-shadow:0 0 16px #806bff33}
     #topRightActions{gap:6px}
     #topRightActions button{white-space:nowrap}
     #cosmosimTrackingDialog{position:fixed;z-index:10001;inset:50% auto auto 50%;transform:translate(-50%,-50%);width:min(390px,calc(100vw - 24px));max-height:calc(100dvh - 28px);overflow:auto;padding:17px;border:1px solid #6378bc;border-radius:16px;background:linear-gradient(145deg,#0a1125f7,#050914fa);color:#eef2ff;box-shadow:0 18px 70px #000c;font:13px/1.5 system-ui,Arial}
@@ -34,6 +35,7 @@
       #topRightActions button{padding:8px 9px;font-size:11px}
       #topRightActions #spaceMenuButton{min-width:35px;padding:7px;font-size:17px}
       #topRightActions #cosmosimSettingsButton{min-width:35px;height:35px;padding:6px;font-size:17px}
+      #topRightActions #cosmosimAiQuickButton{min-height:35px;padding:7px 8px;font-size:10px}
       #topRightActions #pause{font-size:10px;padding:8px 7px}
       #top .brand{font-size:14px;letter-spacing:1px}
       #top .sub{font-size:8px;max-width:145px}
@@ -53,6 +55,16 @@
   settingsButton.title = 'Head and eye tracking settings';
   settingsButton.setAttribute('aria-label', 'Open head and eye tracking settings');
   menuButton.insertAdjacentElement('afterend', settingsButton);
+
+  // Keep Space AI discoverable without requiring users to hunt through Settings.
+  const aiQuickButton = document.createElement('button');
+  aiQuickButton.id = 'cosmosimAiQuickButton';
+  aiQuickButton.className = 'secondary';
+  aiQuickButton.type = 'button';
+  aiQuickButton.textContent = '✦ AI';
+  aiQuickButton.title = 'Open COSMOSIM Space AI and OpenRouter settings';
+  aiQuickButton.setAttribute('aria-label', 'Open COSMOSIM Space AI');
+  settingsButton.insertAdjacentElement('afterend', aiQuickButton);
 
   const dialog = document.createElement('section');
   dialog.id = 'cosmosimTrackingDialog';
@@ -327,6 +339,22 @@
     if (pointer) pointer.classList.remove('is-active', 'is-confirming');
     setButtons(false); startButton.disabled = false; say(message);
   }
+
+  aiQuickButton.addEventListener('click', () => {
+    dialog.hidden = false;
+    // The AI section is added by the following deferred script; scroll once it exists.
+    const revealAI = (attempt = 0) => {
+      const aiSection = $('#cosmosimAiSection', dialog);
+      if (aiSection) {
+        aiSection.scrollIntoView({ block: 'start', behavior: 'smooth' });
+        const keyInput = $('#cosmosimAiKey', aiSection);
+        if (keyInput) keyInput.focus({ preventScroll: true });
+      } else if (attempt < 20) {
+        setTimeout(() => revealAI(attempt + 1), 100);
+      }
+    };
+    setTimeout(() => revealAI(), 0);
+  });
 
   settingsButton.addEventListener('click', () => {
     dialog.hidden = false;
