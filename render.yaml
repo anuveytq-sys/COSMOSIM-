@@ -14,4 +14,4 @@ services:
       - key: APP_PUBLIC_URL
         value: https://anuveytq-sys.github.io/COSMOSIM-/
       - key: OPENROUTER_MODEL
-        value: openrouter/auto
+        value: openrouter/free
