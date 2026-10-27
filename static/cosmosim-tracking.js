@@ -86,30 +86,6 @@
       <button id="ctPause" type="button" disabled>Pause tracking</button>
       <button id="ctStop" type="button" disabled>Stop camera</button>
     </div>
-    <section id="cosmosimAiSection" aria-label="COSMOSIM Space AI">
-      <h3>✦ COSMOSIM SPACE AI</h3>
-      <p class="ai-copy">Connect your own OpenRouter key to ask questions about planets, black holes, astrophysics, missions, and the universe. Your key stays in this browser's local storage and is sent to the configured backend only when you test or ask.</p>
-      <label for="cosmosimAiKey">OpenRouter API key</label>
-      <input id="cosmosimAiKey" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your OpenRouter key" aria-describedby="cosmosimAiSecurityNote">
-      <label for="cosmosimAiModel">Model (optional)</label>
-      <input id="cosmosimAiModel" type="text" autocomplete="off" spellcheck="false" placeholder="openrouter/auto">
-      <label for="cosmosimAiBackend">Render backend URL</label>
-      <input id="cosmosimAiBackend" type="url" inputmode="url" autocomplete="url" spellcheck="false" placeholder="https://your-service.onrender.com">
-      <div class="ai-actions">
-        <button type="button" class="ai-primary" id="cosmosimAiSave">Save locally</button>
-        <button type="button" id="cosmosimAiTest">Test key</button>
-        <button type="button" id="cosmosimAiClear">Forget saved key</button>
-      </div>
-      <div class="ai-status" id="cosmosimAiStatus" role="status" aria-live="polite">Not connected · enter your key and backend URL.</div>
-      <p class="ai-copy" id="cosmosimAiSecurityNote">Security: a key saved in browser storage is not encrypted. Avoid shared devices; never commit your key to GitHub. OpenRouter usage may incur costs.</p>
-      <label for="cosmosimAiQuestion">Ask a space question</label>
-      <textarea id="cosmosimAiQuestion" maxlength="4000" placeholder="Why do black holes have an event horizon?"></textarea>
-      <div class="ai-actions">
-        <button type="button" class="ai-primary" id="cosmosimAiAsk">Ask COSMOSIM AI ↗</button>
-        <button type="button" id="cosmosimAiClearAnswer">Clear answer</button>
-      </div>
-      <div class="ai-answer" id="cosmosimAiAnswer" aria-live="polite"></div>
-    </section>
     <p class="ct-note">Tip: allow camera access, look at the center of the screen, then select Calibrate center. With Blink confirm ON, a detected blink clicks the control beneath the pointer. For dwell scrolling, hold the pointer near the top or bottom edge of a scrollable panel. Camera access requires HTTPS or localhost.</p>
   `;
   document.body.appendChild(dialog);
@@ -365,19 +341,8 @@
   }
 
   aiQuickButton.addEventListener('click', () => {
-    dialog.hidden = false;
-    // The AI section is added by the following deferred script; scroll once it exists.
-    const revealAI = (attempt = 0) => {
-      const aiSection = $('#cosmosimAiSection', dialog);
-      if (aiSection) {
-        aiSection.scrollIntoView({ block: 'start', behavior: 'smooth' });
-        const keyInput = $('#cosmosimAiKey', aiSection);
-        if (keyInput) keyInput.focus({ preventScroll: true });
-      } else if (attempt < 20) {
-        setTimeout(() => revealAI(attempt + 1), 100);
-      }
-    };
-    setTimeout(() => revealAI(), 0);
+    // Space AI has its own dialog; never open the head/eye tracking settings from this button.
+    document.dispatchEvent(new CustomEvent('cosmosim:open-space-ai'));
   });
 
   settingsButton.addEventListener('click', () => {
