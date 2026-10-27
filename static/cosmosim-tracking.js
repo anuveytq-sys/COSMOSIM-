@@ -56,15 +56,19 @@
   settingsButton.setAttribute('aria-label', 'Open head and eye tracking settings');
   menuButton.insertAdjacentElement('afterend', settingsButton);
 
-  // Keep Space AI discoverable without requiring users to hunt through Settings.
-  const aiQuickButton = document.createElement('button');
-  aiQuickButton.id = 'cosmosimAiQuickButton';
-  aiQuickButton.className = 'secondary';
-  aiQuickButton.type = 'button';
-  aiQuickButton.textContent = '✦ AI';
-  aiQuickButton.title = 'Open COSMOSIM Space AI and OpenRouter settings';
-  aiQuickButton.setAttribute('aria-label', 'Open COSMOSIM Space AI');
-  settingsButton.insertAdjacentElement('afterend', aiQuickButton);
+  // The AI button is defined in index.html so it remains available even if this
+  // accessibility script fails. Reuse it rather than creating a duplicate ID.
+  let aiQuickButton = $('#cosmosimAiQuickButton', topActions);
+  if (!aiQuickButton) {
+    aiQuickButton = document.createElement('button');
+    aiQuickButton.id = 'cosmosimAiQuickButton';
+    aiQuickButton.className = 'secondary';
+    aiQuickButton.type = 'button';
+    aiQuickButton.textContent = '✦ AI';
+    aiQuickButton.title = 'Open COSMOSIM Space AI and OpenRouter settings';
+    aiQuickButton.setAttribute('aria-label', 'Open COSMOSIM Space AI');
+    settingsButton.insertAdjacentElement('afterend', aiQuickButton);
+  }
 
   const dialog = document.createElement('section');
   dialog.id = 'cosmosimTrackingDialog';
