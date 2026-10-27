@@ -1225,6 +1225,50 @@ addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updat
 </script>
 <script type="module" src="./static/interstellar-flight.js?v=91dedc9"></script>
 <script src="./static/cosmosim-tracking.js?v=20261027-4" defer></script>
-<script src="./static/cosmosim-space-ai.js?v=openrouter-5" defer></script>
+<script src="./static/cosmosim-space-ai.js?v=openrouter-6" defer></script>
+<style>
+  #cosmosimAiEmergencyPanel{position:fixed;z-index:2147483000;inset:0;display:flex;align-items:center;justify-content:center;padding:12px;background:rgba(1,4,14,.88);color:#eef2ff;font:13px/1.5 system-ui,Arial}
+  #cosmosimAiEmergencyPanel[hidden]{display:none!important}
+  #cosmosimAiEmergencyPanel .cosmosim-ai-card{width:min(520px,100%);max-height:calc(100dvh - 24px);overflow:auto;border:1px solid #7b6cff;border-radius:16px;background:#080d1b;padding:16px;box-shadow:0 18px 70px #000}
+  #cosmosimAiEmergencyPanel .cosmosim-ai-row{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  #cosmosimAiEmergencyPanel label{display:block;margin:10px 0 4px}
+  #cosmosimAiEmergencyPanel input,#cosmosimAiEmergencyPanel textarea{box-sizing:border-box;width:100%;padding:10px;border-radius:8px;border:1px solid #414968;background:#050914;color:#fff}
+  #cosmosimAiEmergencyPanel textarea{min-height:80px}
+  #cosmosimAiEmergencyPanel button{padding:9px 12px;border-radius:8px;background:#252d50;border:1px solid #6977ad;color:#fff}
+  #cosmosimAiEmergencyPanel .cosmosim-ai-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+</style>
+<script>
+(function(){
+  'use strict';
+  function openSpaceAIPanel(){
+    var panel=document.getElementById('cosmosimAiDialog');
+    if(panel){panel.hidden=false;panel.style.display='flex';panel.style.zIndex='2147483000';return;}
+    panel=document.getElementById('cosmosimAiEmergencyPanel');
+    if(!panel){
+      panel=document.createElement('div');
+      panel.id='cosmosimAiEmergencyPanel';
+      panel.hidden=true;
+      panel.innerHTML='<div class="cosmosim-ai-card" role="dialog" aria-modal="true" aria-labelledby="cosmosimAiEmergencyTitle"><div class="cosmosim-ai-row"><h2 id="cosmosimAiEmergencyTitle">✦ COSMOSIM SPACE AI</h2><button type="button" id="cosmosimAiEmergencyClose">✕ Close</button></div><p>Dedicated AI settings panel. If this fallback appears, the Space AI script did not initialize correctly.</p><label for="cosmosimAiEmergencyKey">OpenRouter API key</label><input id="cosmosimAiEmergencyKey" type="password" autocomplete="off" placeholder="Paste OpenRouter API key"><label for="cosmosimAiEmergencyModel">Model ID</label><input id="cosmosimAiEmergencyModel" value="openrouter/auto"><label for="cosmosimAiEmergencyBackend">Render backend URL</label><input id="cosmosimAiEmergencyBackend" value="https://cosmosim-ai.onrender.com"><label for="cosmosimAiEmergencyQuestion">Your space question</label><textarea id="cosmosimAiEmergencyQuestion" placeholder="Ask a question about space"></textarea><div class="cosmosim-ai-actions"><button type="button" id="cosmosimAiEmergencySave">Save settings locally</button><button type="button" id="cosmosimAiEmergencyTest">Test API connection</button><button type="button" id="cosmosimAiEmergencyAsk">Ask COSMOSIM AI</button></div><p id="cosmosimAiEmergencyStatus" role="status">Panel opened in fallback mode. Reload after deployment if this message persists.</p><pre id="cosmosimAiEmergencyAnswer" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></div>';
+      document.body.appendChild(panel);
+      panel.querySelector('#cosmosimAiEmergencyClose').addEventListener('click',function(){panel.hidden=true;});
+      panel.addEventListener('click',function(e){if(e.target===panel)panel.hidden=true;});
+      document.addEventListener('keydown',function(e){if(e.key==='Escape')panel.hidden=true;});
+      panel.querySelector('#cosmosimAiEmergencySave').addEventListener('click',function(){
+        try{localStorage.setItem('cosmosim.openrouter.apiKey.v1',panel.querySelector('#cosmosimAiEmergencyKey').value.trim());localStorage.setItem('cosmosim.openrouter.model.v1',panel.querySelector('#cosmosimAiEmergencyModel').value.trim()||'openrouter/auto');localStorage.setItem('cosmosim.openrouter.backendUrl.v1',panel.querySelector('#cosmosimAiEmergencyBackend').value.trim());panel.querySelector('#cosmosimAiEmergencyStatus').textContent='Settings saved locally. Reload the page to let the main AI interface load them.';}catch(e){panel.querySelector('#cosmosimAiEmergencyStatus').textContent='Could not save settings in browser storage.';}
+      });
+      panel.querySelector('#cosmosimAiEmergencyTest').addEventListener('click',function(){panel.querySelector('#cosmosimAiEmergencyStatus').textContent='Fallback panel is open, but the main Space AI script is not initialized. Reload the page; if this persists, check the deployed JavaScript asset.';});
+      panel.querySelector('#cosmosimAiEmergencyAsk').addEventListener('click',function(){panel.querySelector('#cosmosimAiEmergencyStatus').textContent='AI request controls did not initialize. Please reload the page and check whether the main Space AI panel appears.';});
+    }
+    panel.hidden=false;
+  }
+  document.addEventListener('click',function(event){
+    var button=event.target&&event.target.closest?event.target.closest('#cosmosimAiQuickButton'):null;
+    if(!button)return;
+    event.preventDefault();
+    event.stopPropagation();
+    openSpaceAIPanel();
+  },true);
+})();
+</script>
 </body>
 </html>
