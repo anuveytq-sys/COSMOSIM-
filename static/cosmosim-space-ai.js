@@ -198,6 +198,35 @@
     let tries = 0;
     const timer = setInterval(() => { tries += 1; if (init() || tries > 100) clearInterval(timer); }, 100);
   }
+  // Start initialization normally, but also use a capture-phase delegated click
+  // handler. The AI button is created dynamically by cosmosim-tracking.js; delegation
+  // avoids depending on script execution order or a one-time direct binding.
+  function openSpaceAI() {
+    start();
+    let attempts = 0;
+    const reveal = () => {
+      const dialog = $('#cosmosimAiDialog');
+      if (dialog) {
+        dialog.hidden = false;
+        const key = $('#cosmosimAiKey', dialog);
+        if (key) key.focus({ preventScroll: true });
+        return;
+      }
+      if (++attempts < 40) setTimeout(reveal, 100);
+    };
+    reveal();
+  }
+
+  document.addEventListener('click', event => {
+    const button = event.target && event.target.closest
+      ? event.target.closest('#cosmosimAiQuickButton')
+      : null;
+    if (!button) return;
+    event.preventDefault();
+    event.stopPropagation();
+    openSpaceAI();
+  }, true);
+
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });
   else start();
 })();
