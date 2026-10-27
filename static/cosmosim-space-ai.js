@@ -94,7 +94,7 @@
     }
     function currentKey() { return keyInput.value.trim() || saved(STORAGE_KEY); }
     function baseUrl() {
-      const raw = backendInput.value.trim().replace(/\\/+$/, '');
+      const raw = backendInput.value.trim().replace(/\/+$/, '');
       if (!raw) throw new Error('Enter your deployed Render backend URL first.');
       let parsed;
       try { parsed = new URL(raw); } catch (_) { throw new Error('The backend URL is not a valid URL.'); }
@@ -109,7 +109,7 @@
         const model = modelInput.value.trim();
         if (model) localStorage.setItem(MODEL_KEY, model);
         else localStorage.removeItem(MODEL_KEY);
-        const base = backendInput.value.trim().replace(/\\/+$/, '');
+        const base = backendInput.value.trim().replace(/\/+$/, '');
         if (base) localStorage.setItem(API_BASE_KEY, base);
         else localStorage.removeItem(API_BASE_KEY);
         return true;
