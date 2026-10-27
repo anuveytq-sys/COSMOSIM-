@@ -340,8 +340,12 @@
     setButtons(false); startButton.disabled = false; say(message);
   }
 
-  aiQuickButton.addEventListener('click', () => {
-    // Space AI has its own dialog; never open the head/eye tracking settings from this button.
+  aiQuickButton.addEventListener('click', (event) => {
+    // Open the dedicated AI panel directly; retain the event for the full AI app.
+    event.preventDefault();
+    if (typeof window.cosmosimOpenSpaceAIPanel === 'function') {
+      window.cosmosimOpenSpaceAIPanel();
+    }
     document.dispatchEvent(new CustomEvent('cosmosim:open-space-ai'));
   });
 
