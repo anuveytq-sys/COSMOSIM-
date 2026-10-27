@@ -7,7 +7,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-app = FastAPI(title="COSMOSIM Space AI Provider", version="1.0.0")
+app = FastAPI(title="COSMOSIM Space AI Provider", version="1.1.0")
 
 # The static GitHub Pages site calls this Render service. Set ALLOWED_ORIGINS
 # on Render to the exact public COSMOSIM site origin(s), comma-separated.
@@ -23,7 +23,10 @@ app.add_middleware(
 )
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-DEFAULT_MODEL = os.getenv("OPENROUTER_MODEL", "openrouter/auto")
+# Use OpenRouter's free router by default so a connection test does not
+# unexpectedly require paid model credits. Users can still select any
+# supported model in the COSMOSIM AI panel.
+DEFAULT_MODEL = os.getenv("OPENROUTER_MODEL", "openrouter/free")
 MAX_KEY_LENGTH = 512
 
 
@@ -44,6 +47,22 @@ def validate_key(value: str) -> str:
     return key
 
 
+def openrouter_error_message(response: httpx.Response) -> str:
+    """Extract a useful, non-secret error message from OpenRouter."""
+    try:
+        data = response.json()
+        error = data.get("error") if isinstance(data, dict) else None
+        if isinstance(error, dict):
+            message = error.get("message") or error.get("code")
+            if isinstance(message, str) and message.strip():
+                return message.strip()[:500]
+        if isinstance(error, str) and error.strip():
+            return error.strip()[:500]
+    except ValueError:
+        pass
+    return response.text.strip()[:500] if response.text else "OpenRouter returned an error."
+
+
 async def openrouter_request(key: str, payload: dict) -> dict:
     headers = {
         "Authorization": f"Bearer {key}",
@@ -56,17 +75,21 @@ async def openrouter_request(key: str, payload: dict) -> dict:
             response = await client.post(OPENROUTER_URL, headers=headers, json=payload)
     except httpx.TimeoutException:
         raise HTTPException(status_code=504, detail="OpenRouter took too long to respond. Please try again.")
-    except httpx.HTTPError:
-        raise HTTPException(status_code=502, detail="Could not connect to OpenRouter. Check your connection and try again.")
+    except httpx.HTTPError as error:
+        raise HTTPException(status_code=502, detail=f"Could not connect to OpenRouter: {str(error)[:300]}")
 
     if response.status_code in (401, 403):
-        raise HTTPException(status_code=401, detail="OpenRouter rejected this key. Check that it is correct and enabled.")
+        detail = openrouter_error_message(response)
+        raise HTTPException(status_code=401, detail=f"OpenRouter rejected the request: {detail}")
     if response.status_code == 429:
-        raise HTTPException(status_code=429, detail="OpenRouter rate limit or provider quota reached. Check your OpenRouter account.")
+        detail = openrouter_error_message(response)
+        raise HTTPException(status_code=429, detail=f"OpenRouter rate limit or quota reached: {detail}")
     if response.status_code >= 500:
-        raise HTTPException(status_code=502, detail="OpenRouter is temporarily unavailable. Try again shortly.")
+        detail = openrouter_error_message(response)
+        raise HTTPException(status_code=502, detail=f"OpenRouter is temporarily unavailable: {detail}")
     if response.status_code >= 400:
-        raise HTTPException(status_code=400, detail="OpenRouter could not process this request. Check your model and account credits.")
+        detail = openrouter_error_message(response)
+        raise HTTPException(status_code=400, detail=f"OpenRouter could not process this request: {detail}")
     try:
         return response.json()
     except ValueError:
