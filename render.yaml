@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: cosmosim-ai
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn api:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: ALLOWED_ORIGINS
+        value: https://anuveytq-sys.github.io
+      - key: APP_PUBLIC_URL
+        value: https://anuveytq-sys.github.io/COSMOSIM-/
+      - key: OPENROUTER_MODEL
+        value: openrouter/auto
