@@ -169,14 +169,40 @@
     }
     try {
       control.focus({ preventScroll: true });
-      if (control.matches('input[type="checkbox"],input[type="radio"]')) {
+      if (control.matches('input[type="range"]')) {
+        // Synthetic clicks do not reposition a native range thumb. Convert the
+        // tracked pointer position into a value and emit native-style value events.
+        const rect = control.getBoundingClientRect();
+        if (rect.width <= 0 || pointerX < rect.left || pointerX > rect.right || pointerY < rect.top || pointerY > rect.bottom) {
+          say('Aim directly at the slider track, then blink.');
+          return;
+        }
+        const computed = getComputedStyle(control);
+        let ratio = Math.max(0, Math.min(1, (pointerX - rect.left) / rect.width));
+        if (computed.direction === 'rtl') ratio = 1 - ratio;
+        const min = control.min !== '' ? Number(control.min) : 0;
+        const max = control.max !== '' ? Number(control.max) : 100;
+        let value = min + ratio * (max - min);
+        if (control.step !== 'any') {
+          const step = control.step !== '' ? Number(control.step) : 1;
+          if (Number.isFinite(step) && step > 0) value = min + Math.round((value - min) / step) * step;
+        }
+        value = Math.max(min, Math.min(max, value));
+        const precision = control.step && control.step !== 'any' && control.step.includes('.')
+          ? Math.min(10, control.step.split('.')[1].length) : 6;
+        control.value = String(Number(value.toFixed(precision)));
+        control.dispatchEvent(new Event('input', { bubbles: true }));
+        control.dispatchEvent(new Event('change', { bubbles: true }));
+      } else if (control.matches('input[type="checkbox"],input[type="radio"]')) {
         control.click();
       } else {
         control.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, pointerType: 'mouse', isPrimary: true, clientX: pointerX, clientY: pointerY, button: 0, buttons: 1 }));
         control.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, pointerType: 'mouse', isPrimary: true, clientX: pointerX, clientY: pointerY, button: 0, buttons: 0 }));
         control.click();
       }
-      say('Blink click: ' + ((control.getAttribute('aria-label') || control.textContent || control.id || 'control').trim().replace(/\s+/g, ' ').slice(0, 50)), true);
+      say(control.matches('input[type="range"]')
+        ? 'Slider set to ' + control.value
+        : 'Blink click: ' + ((control.getAttribute('aria-label') || control.textContent || control.id || 'control').trim().replace(/\s+/g, ' ').slice(0, 50)), true);
     } catch (_) {
       say('Could not activate that control; try a direct touch or click.');
     }
