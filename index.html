@@ -76,7 +76,7 @@ body.hud-hidden #simControls,body.hud-hidden #simInfo{display:none!important}
 <div id="space"></div>
 <div id="top" class="panel">
   <div><div class="brand">✦ COSMOSIM</div><div class="sub">INTERACTIVE SPACE LAB · 3D EXPERIMENT</div></div>
-  <div id="topRightActions"><button id="spaceMenuButton" class="secondary" aria-label="Open simulations">☰</button><button id="pause" class="secondary">Ⅱ Pause</button></div>
+  <div id="topRightActions"><button id="spaceMenuButton" class="secondary" aria-label="Open simulations">☰</button><button id="cosmosimAiQuickButton" type="button" class="secondary" aria-label="Open COSMOSIM Space AI" title="Open COSMOSIM Space AI and OpenRouter settings">✦ AI</button><button id="pause" class="secondary">Ⅱ Pause</button></div>
 </div>
 
 <div id="spaceMenu">
@@ -1224,8 +1224,8 @@ animate();
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);composer.setSize(innerWidth,innerHeight);bloomPass.setSize(innerWidth,innerHeight)});
 </script>
 <script type="module" src="./static/interstellar-flight.js?v=91dedc9"></script>
-<script src="./static/cosmosim-tracking.js?v=20261027-4" defer></script>
-<script src="./static/cosmosim-space-ai.js?v=openrouter-7" defer></script>
+<script src="./static/cosmosim-tracking.js?v=20261027-5" defer></script>
+<script src="./static/cosmosim-space-ai.js?v=openrouter-8" defer></script>
 <style>
   #cosmosimAiEmergencyPanel{position:fixed;z-index:2147483000;inset:0;display:flex;align-items:center;justify-content:center;padding:12px;background:rgba(1,4,14,.88);color:#eef2ff;font:13px/1.5 system-ui,Arial}
   #cosmosimAiEmergencyPanel[hidden]{display:none!important}
