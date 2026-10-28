@@ -19,15 +19,16 @@ function rotate(p){const cy=Math.cos(S.yaw),sy=Math.sin(S.yaw),cp=Math.cos(S.pit
 function project(p){const q=rotate(p),cam=29/S.zoom,depth=cam-q.z;if(depth<1.2)return null;const f=Math.min(S.w,S.h)*.94*cam/depth;return{x:S.w*.5+q.x*f+S.panX,y:S.h*.53-q.y*f+S.panY,z:q.z,depth}}
 // Static, isotropic Schwarzschild-inspired compression. Every fabric point moves only inward toward r=0.
 function warp(p,M){
- // Stable isotropic 3D radial curvature: every point moves toward the origin along its own 3D radius.
- // No one-way vertical offset, so increasing mass cannot shear the grid into a plane.
+ // Localized, isotropic 3D curvature: the surrounding fabric compresses radially near the centre.
+ // A Gaussian falloff keeps distant grid lines stable and avoids a one-directional bowl/shear.
  const r=Math.hypot(p.x,p.y,p.z);
  if(r<1e-8)return{x:0,y:0,z:0};
  const mass=Math.max(0,Math.min(1,(M-3)/47));
- const range=4.2+mass*4.8;
- const maxPull=.18+mass*.48;
- const pull=maxPull*Math.exp(-r/range)/(1+.055*r);
- const scale=Math.max(.48,1-pull);
+ const range=3.0+mass*1.65;
+ const maxPull=.28+mass*.48;
+ const falloff=Math.exp(-Math.pow(r/range,2));
+ const pull=maxPull*falloff;
+ const scale=Math.max(.22,1-pull);
  return{x:p.x*scale,y:p.y*scale,z:p.z*scale};
 }
 function stroke(points,a,w){if(points.length<2)return;ctx.beginPath();let started=false;for(const p of points){if(!p){started=false;continue}if(!started){ctx.moveTo(p.x,p.y);started=true}else ctx.lineTo(p.x,p.y)}ctx.strokeStyle=`rgba(255,255,255,${a})`;ctx.lineWidth=w;ctx.stroke()}
@@ -49,7 +50,7 @@ function drawVolumetricGrid(M){
     pts.push(project(warp(p,M)));
    }
    // Uniform grid weight: no special center lines and no random highlighted tracks.
-   stroke(pts,gridAlpha(pts,.105),.78);
+   stroke(pts,gridAlpha(pts,.155),.92);
   }
  }
  // Additional curved depth rings reinforce that the fabric surrounds the hole in all directions.
@@ -58,7 +59,7 @@ function drawVolumetricGrid(M){
   for(let lat=0;lat<9;lat++){
    const el=-Math.PI/2+(lat+1)*Math.PI/10,ce=Math.cos(el),se=Math.sin(el),pts=[];
    for(let k=0;k<=150;k++){const a=k/150*Math.PI*2;pts.push(project(warp({x:r*ce*Math.cos(a),y:r*se,z:r*ce*Math.sin(a)},M)))}
-   stroke(pts,gridAlpha(pts,.070),.62);
+   stroke(pts,gridAlpha(pts,.105),.72);
   }
   for(let lon=0;lon<16;lon++){
    const a=lon/16*Math.PI*2,pts=[];
@@ -71,7 +72,7 @@ function drawVolumetricGrid(M){
  for(let i=0;i<rays;i++){
   const az=i/rays*Math.PI*2,el=-.82+((i*11)%23)/22*1.64,ce=Math.cos(el),se=Math.sin(el),pts=[];
   for(let j=0;j<=80;j++){const r=.38+max*j/80;pts.push(project(warp({x:r*ce*Math.cos(az),y:r*se,z:r*ce*Math.sin(az)},M)))}
-  stroke(pts,gridAlpha(pts,.060),.58);
+  stroke(pts,gridAlpha(pts,.090),.66);
  }
 }
 function drawAccretion(M){const R=rs(M),tilt=.38,rows=10,seg=260;for(let j=0;j<rows;j++){const rad=Math.max(R*1.75,2)+j*.68,pts=[];for(let k=0;k<=seg;k++){const a=k/seg*Math.PI*2,wob=.018*Math.sin(a*7+j),x=rad*Math.cos(a),z=rad*Math.sin(a),y=z*tilt+wob;pts.push(project(warp({x,y,z},M)))}stroke(pts,.085+j*.018,1+j*.08)}for(let i=0;i<1000;i++){const baseR=2+((i*37)%1000)/1000*6,a=i/1000*Math.PI*2*7,z=baseR*Math.sin(a),x=baseR*Math.cos(a),y=z*tilt+Math.sin(i*2.1)*.04,p=project(warp({x,y,z},M));if(!p)continue;const hot=Math.max(.18,1-baseR/8);ctx.fillStyle=`rgba(255,255,255,${.16+.55*hot})`;ctx.fillRect(p.x,p.y,1.0+.65*hot,1.0+.65*hot)}}
