@@ -1258,10 +1258,11 @@ function updateExtraSimulation(){
 // Initialize command-deck scene groups as hidden until their simulation is selected.
 Object.values(extraGroups).forEach(g=>g.visible=false);
 
+let mainRenderRaf=0;
 function animate(){
- requestAnimationFrame(animate);
- // Pause the normal Three.js work while Black Hole Lab 4D Vision owns the frame.
- if(typeof window.__COSMOSIM_4D_IS_ACTIVE__==='function'&&window.__COSMOSIM_4D_IS_ACTIVE__())return;
+ // Stop the whole main simulation loop while 4D Vision owns the view; resume from its OFF handler.
+ if(typeof window.__COSMOSIM_4D_IS_ACTIVE__==='function'&&window.__COSMOSIM_4D_IS_ACTIVE__()){mainRenderRaf=0;return;}
+ mainRenderRaf=requestAnimationFrame(animate);
  if(!paused){
   time+=.01;deepSky.material.uniforms.uTime.value=time;
   if(sx.active!=="blackhole"){sx.t+=.016*speed;updateExtraSimulation();}
@@ -1322,6 +1323,7 @@ function animate(){
  }
  controls.update();composer.render();
 }
+window.__COSMOSIM_RESUME_MAIN_RENDER__=()=>{if(!mainRenderRaf)animate()};
 animate();
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);composer.setSize(innerWidth,innerHeight);bloomPass.setSize(innerWidth,innerHeight)});
 </script>
