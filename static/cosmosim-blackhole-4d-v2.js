@@ -1,17 +1,186 @@
-(()=>{if(window.__COSMOSIM_BLACKHOLE_4D_V2__)return;window.__COSMOSIM_BLACKHOLE_4D_V2__=1;const U='https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js',O='https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js',root=document.getElementById('space');if(!root)return;let T,C,api,active=false,mass=10,raf=0,t=0;const st=document.createElement('style');st.textContent=`#cosmosim4dToggle{width:100%;margin-top:8px;background:#101726;border:1px solid #cbd5e1;color:#fff}#cosmosim4dToggle.on{background:#fff;color:#000;box-shadow:0 0 18px #fff9}#cosmosim4dStage{position:absolute;inset:0;display:none;background:#000;z-index:1;overflow:hidden}#cosmosim4dStage.on{display:block}#cosmosim4dStage canvas{width:100%;height:100%;display:block;touch-action:none}body.cosmosim4d-on #space>canvas:not(#cosmosim4dCanvas){visibility:hidden!important}#cosmosim4dBadge{position:absolute;z-index:2;top:88px;left:50%;transform:translateX(-50%);padding:7px 12px;border:1px solid #fff5;border-radius:999px;background:#000d;color:#fff;font:800 9px monospace;letter-spacing:.14em;white-space:nowrap;pointer-events:none}@media(max-width:520px){#cosmosim4dBadge{top:72px;font-size:8px;max-width:72vw;overflow:hidden;text-overflow:ellipsis}}`;document.head.appendChild(st);const stage=document.createElement('div');stage.id='cosmosim4dStage';stage.innerHTML='<div id="cosmosim4dBadge">4D VISION · VOLUMETRIC SCHWARZSCHILD SPACETIME</div>';root.appendChild(stage);
-function button(){if(document.getElementById('cosmosim4dToggle'))return;const p=document.getElementById('panelBody');if(!p)return;const b=document.createElement('button');b.id='cosmosim4dToggle';b.className='secondary';b.type='button';b.textContent='◉ 4D VISION · OFF';b.onclick=()=>set(!active);p.appendChild(b)}
-function hideOriginal(h){root.querySelectorAll('canvas:not(#cosmosim4dCanvas)').forEach(c=>{c.style.visibility=h?'hidden':''})}
-async function engine(){if(api)return api;T=await import(U);C=(await import(O)).OrbitControls;const cv=document.createElement('canvas');cv.id='cosmosim4dCanvas';stage.appendChild(cv);const r=new T.WebGLRenderer({canvas:cv,antialias:true,powerPreference:'high-performance'});r.setPixelRatio(Math.min(devicePixelRatio||1,2));r.outputColorSpace=T.SRGBColorSpace;r.toneMapping=T.ACESFilmicToneMapping;r.toneMappingExposure=1.12;const s=new T.Scene();s.background=new T.Color(0x000000);s.fog=new T.FogExp2(0x000000,.014);const cam=new T.PerspectiveCamera(45,1,.01,300);cam.position.set(12,8,18);const ctl=new C(cam,cv);ctl.enableDamping=true;ctl.dampingFactor=.055;ctl.minDistance=4;ctl.maxDistance=42;ctl.zoomSpeed=.8;ctl.rotateSpeed=.55;ctl.panSpeed=.72;ctl.target.set(0,0,0);s.add(new T.HemisphereLight(0xffffff,0x111111,.72));const key=new T.PointLight(0xffffff,120,80);key.position.set(8,12,15);s.add(key);
-const fabric=new T.Group;const shellGroup=new T.Group;const holeGroup=new T.Group;s.add(fabric,shellGroup,holeGroup);
-function rsKm(M){return 2.95325008*M}function rs(M){return 1.18*Math.pow(Math.max(3,M)/10,.72)}
-function warp(v,M){const r=Math.max(.16,v.length()),R=rs(M),weak=Math.min(.72,2*R/r),strong=Math.min(.91,.58*Math.pow(R/Math.max(r,R),1.62));const pull=Math.min(.95,.14*weak+strong*(.72+.012*M));return v.multiplyScalar(Math.max(.035,1-pull))}
-function line(P,o,w=.7){const g=new T.BufferGeometry().setFromPoints(P);fabric.add(new T.Line(g,new T.LineBasicMaterial({color:0xffffff,transparent:true,opacity:o,linewidth:w,depthWrite:false,blending:T.AdditiveBlending})))}
-function rebuild(M){while(fabric.children.length){const q=fabric.children.pop();q.geometry.dispose();q.material.dispose()}while(shellGroup.children.length){const q=shellGroup.children.pop();q.geometry.dispose();q.material.dispose()}const out=12,n=72,levels=13,L=[];for(let i=0;i<levels;i++)L.push((i/(levels-1)-.5)*2*out);for(const y of L)for(const z of L){const P=[];for(let k=0;k<=n;k++)P.push(warp(new T.Vector3(-out+2*out*k/n,y,z),M));line(P,.16+(1-Math.abs(y)/out)*.10)}for(const x of L)for(const z of L){const P=[];for(let k=0;k<=n;k++)P.push(warp(new T.Vector3(x,-out+2*out*k/n,z),M));line(P,.15+(1-Math.abs(x)/out)*.10)}for(const x of L)for(const y of L){const P=[];for(let k=0;k<=n;k++)P.push(warp(new T.Vector3(x,y,-out+2*out*k/n),M));line(P,.14+(1-Math.abs(y)/out)*.10)}for(let si=0;si<9;si++){const R=1.7+si*(out-1.7)/8,seg=96;for(let lat=1;lat<18;lat++){const p=Math.PI*lat/18,P=[];for(let k=0;k<=seg;k++){const a=2*Math.PI*k/seg;P.push(warp(new T.Vector3(R*Math.sin(p)*Math.cos(a),R*Math.cos(p),R*Math.sin(p)*Math.sin(a)),M))}line(P,.075+(8-si)*.012)}for(let lon=0;lon<28;lon++){const a=2*Math.PI*lon/28,P=[];for(let k=0;k<=seg;k++){const p=-Math.PI/2+Math.PI*k/seg;P.push(warp(new T.Vector3(R*Math.sin(p)*Math.cos(a),R*Math.cos(p),R*Math.sin(p)*Math.sin(a)),M))}line(P,.065+(8-si)*.010)}}for(let i=0;i<48;i++){const a=2*Math.PI*i/48;for(let j=0;j<18;j++){const p=-Math.PI/2+Math.PI*j/18,P=[];for(let k=0;k<=n;k++){const rr=.65+(out-.65)*k/n;P.push(warp(new T.Vector3(rr*Math.cos(p)*Math.cos(a),rr*Math.sin(p),rr*Math.cos(p)*Math.sin(a)),M))}line(P,.045+(j%3===0?.025:0))}}}
-const core=new T.Mesh(new T.SphereGeometry(1,128,96),new T.MeshBasicMaterial({color:0x000000}));holeGroup.add(core);const shadow=new T.Mesh(new T.SphereGeometry(1.18,96,72),new T.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.95,side:T.BackSide,depthWrite:false}));holeGroup.add(shadow);const photon=new T.Mesh(new T.TorusGeometry(1.55,.065,28,512),new T.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.98,blending:T.AdditiveBlending,depthWrite:false}));photon.rotation.x=Math.PI/2;holeGroup.add(photon);const glow=new T.Mesh(new T.TorusGeometry(1.62,.25,24,512),new T.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.13,blending:T.AdditiveBlending,depthWrite:false}));glow.rotation.x=Math.PI/2;holeGroup.add(glow);
-const disk=new T.Group;disk.rotation.x=.30;holeGroup.add(disk);for(let i=0;i<10;i++){const r0=1.75+i*.34;disk.add(new T.Mesh(new T.TorusGeometry(r0,.025+(9-i)*.006,16,384),new T.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.10+(9-i)*.045,blending:T.AdditiveBlending,depthWrite:false})))}const N=8000,pos=new Float32Array(N*3),col=new Float32Array(N*3),dd=[];for(let i=0;i<N;i++){const rr=1.78+Math.pow(Math.random(),.66)*7.2,a=Math.random()*6.283,h=(Math.random()-.5)*(.045+rr*.022);pos[i*3]=Math.cos(a)*rr;pos[i*3+1]=h;pos[i*3+2]=Math.sin(a)*rr;dd.push({r:rr,a,h});col[i*3]=1;col[i*3+1]=1;col[i*3+2]=1}const dg=new T.BufferGeometry;dg.setAttribute('position',new T.BufferAttribute(pos,3));dg.setAttribute('color',new T.BufferAttribute(col,3));disk.add(new T.Points(dg,new T.PointsMaterial({vertexColors:true,size:.028,transparent:true,opacity:.95,blending:T.AdditiveBlending,depthWrite:false})));
-const starGeo=new T.BufferGeometry,sp=[];for(let i=0;i<3200;i++){const R=60+Math.random()*200,a=Math.random()*6.283,z=(Math.random()-.5)*2*R,s=Math.sqrt(Math.max(0,R*R-z*z));sp.push(s*Math.cos(a),s*Math.sin(a),z)}starGeo.setAttribute('position',new T.Float32BufferAttribute(sp,3));s.add(new T.Points(starGeo,new T.PointsMaterial({color:0xffffff,size:.12,sizeAttenuation:true,transparent:true,opacity:.58})));
-function massSet(M){mass=M;const v=rs(M)/1.18;core.scale.setScalar(v);shadow.scale.setScalar(v*1.08);photon.scale.setScalar(v);glow.scale.setScalar(v);disk.scale.setScalar(v);rebuild(M);const q=document.getElementById('cosmosim4dBadge');if(q)q.textContent='4D VISION · VOLUMETRIC SCHWARZSCHILD · Rs '+rsKm(M).toFixed(1)+' km'}function resize(){const w=Math.max(1,stage.clientWidth),h=Math.max(1,stage.clientHeight);r.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix()}
-function frame(){if(!active){raf=0;return}t+=.016;const m=Number(document.getElementById('mass')?.value||mass);if(Math.abs(m-mass)>.01)massSet(m);for(let i=0;i<dd.length;i++){const d=dd[i];d.a+=.0036*Math.sqrt(mass/10)*Math.pow(3/Math.max(2,d.r),1.5);pos[i*3]=Math.cos(d.a)*d.r;pos[i*3+1]=d.h;pos[i*3+2]=Math.sin(d.a)*d.r}dg.attributes.position.needsUpdate=true;disk.rotation.z+=.0011*Math.sqrt(mass/10);photon.material.opacity=.86+.12*Math.sin(t*2.2);glow.material.opacity=.07+.05*Math.sin(t*1.7);fabric.rotation.y+=.00028;shellGroup.rotation.y+=.00028;ctl.update();r.render(s,cam);raf=requestAnimationFrame(frame)}
-function localSet(on){active=on;stage.classList.toggle('on',on);hideOriginal(on);const b=document.getElementById('cosmosim4dToggle');if(b){b.classList.toggle('on',on);b.textContent=on?'◉ 4D VISION · ON':'◉ 4D VISION · OFF'}document.body.classList.toggle('cosmosim4d-on',on);if(on){massSet(Number(document.getElementById('mass')?.value||10));resize();if(!raf)raf=requestAnimationFrame(frame)}else if(raf){cancelAnimationFrame(raf);raf=0}}
-addEventListener('resize',resize);api={set:localSet,massSet};massSet(10);resize();return api}
-async function set(on){try{const e=await engine();e.set(on)}catch(e){console.error(e);const b=document.getElementById('cosmosim4dToggle');if(b)b.textContent='4D VISION · ERROR'}}document.addEventListener('click',e=>{const b=e.target.closest?.('.simChoice[data-sim]');if(b&&b.dataset.sim!=='blackhole'&&active)set(false)},true);document.addEventListener('input',e=>{if(e.target?.id==='mass'&&active&&api)api.massSet(Number(e.target.value))},true);new MutationObserver(button).observe(document.body,{childList:true,subtree:true});button();window.__COSMOSIM_4D_SET_ACTIVE__=set})()
+(()=>{
+'use strict';
+if(window.__COSMOSIM_BLACKHOLE_4D_V3__)return;
+window.__COSMOSIM_BLACKHOLE_4D_V3__=1;
+const root=document.getElementById('space');
+if(!root)return;
+
+const css=document.createElement('style');
+css.textContent=`
+#cosmosim4dToggle{width:100%;margin-top:8px;background:#0b0f18;border:1px solid #d9e0ef;color:#fff}
+#cosmosim4dToggle.on{background:#fff;color:#000;box-shadow:0 0 20px rgba(255,255,255,.55)}
+#cosmosim4dStage{position:absolute;inset:0;display:none;overflow:hidden;background:#000;z-index:1}
+#cosmosim4dStage.on{display:block}
+#cosmosim4dCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+#cosmosim4dCanvas.dragging{cursor:grabbing}
+#cosmosim4dBadge{position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:3;pointer-events:none;padding:7px 12px;border:1px solid rgba(255,255,255,.3);border-radius:999px;background:rgba(0,0,0,.68);color:#fff;font:800 9px/1.1 ui-monospace,SFMono-Regular,monospace;letter-spacing:.14em;white-space:nowrap;text-shadow:0 0 9px #fff}
+#cosmosim4dHint{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);z-index:3;pointer-events:none;color:rgba(255,255,255,.65);font:700 8px ui-monospace,SFMono-Regular,monospace;letter-spacing:.12em;white-space:nowrap}
+body.cosmosim4d-on #space>canvas:not(#cosmosim4dCanvas){visibility:hidden!important}
+@media(max-width:520px){#cosmosim4dBadge{top:8px;font-size:7px;max-width:86vw;overflow:hidden;text-overflow:ellipsis}#cosmosim4dHint{font-size:7px;bottom:7px}}
+`;
+document.head.appendChild(css);
+
+const stage=document.createElement('div');
+stage.id='cosmosim4dStage';
+stage.innerHTML='<canvas id="cosmosim4dCanvas"></canvas><div id="cosmosim4dBadge">4D VISION · VOLUMETRIC SCHWARZSCHILD SPACETIME</div><div id="cosmosim4dHint">DRAG · ROTATE / PAN &nbsp; SCROLL · ZOOM &nbsp; PINCH · ZOOM</div>';
+root.appendChild(stage);
+const canvas=stage.querySelector('#cosmosim4dCanvas');
+const ctx=canvas.getContext('2d',{alpha:false});
+
+const S={active:false,mass:10,zoom:1.0,yaw:-.28,pitch:.28,panX:0,panY:0,dpr:1,w:1,h:1,last:0,t:0,raf:0,drag:false,lx:0,ly:0,pinch:0};
+const stars=[];
+for(let i=0;i<1800;i++){
+ const r=30+Math.random()*150,a=Math.random()*Math.PI*2,z=(Math.random()-.5)*2*r;
+ const q=Math.sqrt(Math.max(.1,r*r-z*z));
+ stars.push({x:q*Math.cos(a),y:q*Math.sin(a),z,tw:Math.random()*6.28,s:.25+Math.random()*1.5});
+}
+
+function resize(){
+ S.w=Math.max(1,stage.clientWidth);S.h=Math.max(1,stage.clientHeight);S.dpr=Math.min(2,window.devicePixelRatio||1);
+ canvas.width=Math.floor(S.w*S.dpr);canvas.height=Math.floor(S.h*S.dpr);ctx.setTransform(S.dpr,0,0,S.dpr,0,0);
+}
+function massValue(){const e=document.getElementById('mass');const m=Number(e?.value);return Number.isFinite(m)?Math.max(1,Math.min(100,m)):S.mass}
+function rsNorm(M){return .78*Math.pow(M/10,.72)}
+function schwarzschildKm(M){return 2.95325008*M}
+
+// Perspective projection of a real 3D volume. The grid is not a 2D plane:
+// it is a family of spherical shells plus radial 3D geodesic tracks, all
+// displaced toward the same central potential well.
+function rotate(p){
+ const cy=Math.cos(S.yaw),sy=Math.sin(S.yaw),cp=Math.cos(S.pitch),sp=Math.sin(S.pitch);
+ const x=p.x*cy-p.z*sy,z=p.x*sy+p.z*cy;
+ return {x,y:p.y*cp-z*sp,z:p.y*sp+z*cp};
+}
+function project(p){
+ const q=rotate(p);const cam=30/S.zoom;const depth=cam-q.z; if(depth<1)return null;
+ const f=430*cam/depth;
+ return {x:S.w*.5+q.x*f+S.panX,y:S.h*.53-q.y*f+S.panY,z:q.z,depth};
+}
+function potential(r,M){
+ const R=rsNorm(M);const u=Math.max(.002,r);const weak=Math.min(.92,R/u);const strong=Math.min(.86,Math.pow(R/u,1.75)*.72);
+ return Math.min(.96,.20*weak+strong);
+}
+function bendPoint(p,M){
+ const r=Math.hypot(p.x,p.y,p.z);if(r<.001)return {x:0,y:0,z:0};
+ const k=potential(r,M);
+ const scale=Math.max(.045,1-k*(.72+.28*Math.exp(-r/5)));
+ return {x:p.x*scale,y:p.y*scale,z:p.z*scale};
+}
+function stroke(points,a,w){
+ if(points.length<2)return;ctx.beginPath();
+ let started=false;
+ for(const p of points){if(!p){started=false;continue}if(!started){ctx.moveTo(p.x,p.y);started=true}else ctx.lineTo(p.x,p.y)}
+ ctx.strokeStyle=`rgba(255,255,255,${a})`;ctx.lineWidth=w;ctx.stroke();
+}
+function drawStars(M){
+ const cx=S.w*.5,cy=S.h*.53,R=rsNorm(M)*2.8;
+ for(const st of stars){
+  const p=project(st);if(!p)continue;
+  const r2=Math.hypot(st.x,st.y,st.z);const near=Math.max(0,1-r2/180);const d=Math.hypot(st.x,st.y,st.z);
+  const ang=Math.atan2(st.y,st.x);const lens=.35*Math.min(1,R*R/Math.max(1,d*d));
+  const x=p.x+(p.x-cx)*lens,y=p.y+(p.y-cy)*lens;
+  const alpha=.18+.55*(.5+.5*Math.sin(S.t*.8+st.tw));
+  ctx.fillStyle=`rgba(255,255,255,${alpha})`;const sz=Math.max(.35,st.s*(1+p.depth/70));ctx.fillRect(x,y,sz,sz);
+  if(near>.2&&Math.abs(ang)<.12)ctx.fillRect(x+sz*1.5,y,sz*2.5,.45);
+ }
+}
+function drawVolumetricGrid(M){
+ const max=13,levels=17,step=(max*2)/(levels-1);
+ // Nested spherical shells make the fabric visibly volumetric in every direction.
+ for(let shell=0;shell<13;shell++){
+  const R=1.65+shell*(max-1.65)/12;
+  const latCount=15,lonCount=28,seg=110;
+  const shellAlpha=.075+(12-shell)*.012;
+  for(let li=1;li<latCount;li++){
+   const lat=-Math.PI/2+Math.PI*li/latCount,pts=[];
+   for(let k=0;k<=seg;k++){
+    const a=2*Math.PI*k/seg;
+    pts.push(project(bendPoint({x:R*Math.cos(lat)*Math.cos(a),y:R*Math.sin(lat),z:R*Math.cos(lat)*Math.sin(a)},M)));
+   }
+   stroke(pts,shellAlpha+(li%3===0?.025:0),li<4?1.0:.65);
+  }
+  for(let lo=0;lo<lonCount;lo++){
+   const a=2*Math.PI*lo/lonCount,pts=[];
+   for(let k=0;k<=seg;k++){
+    const lat=-Math.PI/2+Math.PI*k/seg;
+    pts.push(project(bendPoint({x:R*Math.cos(lat)*Math.cos(a),y:R*Math.sin(lat),z:R*Math.cos(lat)*Math.sin(a)},M)));
+   }
+   stroke(pts,shellAlpha*.9+(lo%4===0?.018:0),.62);
+  }
+ }
+ // Three mutually perpendicular 3D lattices: depth layers remain visible
+ // around and behind the hole, rather than becoming one flat sheet.
+ for(let a=0;a<levels;a++)for(let b=0;b<levels;b++){
+  const y=-max+a*step,z=-max+b*step,pts=[];
+  for(let i=0;i<=90;i++){const x=-max+2*max*i/90;pts.push(project(bendPoint({x,y,z},M)))}
+  stroke(pts,.065+(a===8&&b===8?.05:0),.55);
+ }
+ for(let a=0;a<levels;a++)for(let b=0;b<levels;b++){
+  const x=-max+a*step,z=-max+b*step,pts=[];
+  for(let i=0;i<=90;i++){const y=-max+2*max*i/90;pts.push(project(bendPoint({x,y,z},M)))}
+  stroke(pts,.06+(a===8&&b===8?.05:0),.55);
+ }
+ for(let a=0;a<levels;a++)for(let b=0;b<levels;b++){
+  const x=-max+a*step,y=-max+b*step,pts=[];
+  for(let i=0;i<=90;i++){const z=-max+2*max*i/90;pts.push(project(bendPoint({x,y,z},M)))}
+  stroke(pts,.055+(a===8&&b===8?.05:0),.55);
+ }
+ // Radial depth spokes emphasize that curvature surrounds the black hole.
+ const rays=72;
+ for(let i=0;i<rays;i++){
+  const az=2*Math.PI*i/rays,el=-.75+1.5*((i%13)/12),pts=[];
+  const ce=Math.cos(el),se=Math.sin(el);
+  for(let j=0;j<=75;j++){const r=.55+(12.5-.55)*j/75;pts.push(project(bendPoint({x:r*ce*Math.cos(az),y:r*se,z:r*ce*Math.sin(az)},M)))}
+  stroke(pts,i%6===0?.075:.035,i%6===0?.72:.42);
+ }
+}
+function drawAccretion(M){
+ const R=rsNorm(M),tilt=.22,rows=7,seg=220;
+ for(let j=0;j<rows;j++){
+  const rad=R*1.85+j*(7.8-R*1.35)/Math.max(1,rows-1),pts=[];
+  for(let k=0;k<=seg;k++){
+   const a=2*Math.PI*k/seg;const wob=.035*Math.sin(a*5+S.t*2+j);
+   const x=rad*Math.cos(a),z=rad*Math.sin(a),y=(z*.22)+wob;
+   const q=bendPoint({x,y,z},M);pts.push(project(q));
+  }
+  stroke(pts,.10+j*.035,1.0+j*.12);
+ }
+ // Dense photon particles.
+ for(let i=0;i<650;i++){
+  const a=(i/650)*Math.PI*2*5+S.t*(.4+M*.002),rad=R*1.75+((i*37)%1000)/1000*6.5;
+  const q=bendPoint({x:rad*Math.cos(a),y:(Math.sin(a*3+i)*.02),z:rad*Math.sin(a)},M),p=project(q);if(!p)continue;
+  const alpha=.22+.55*(1-rad/10);ctx.fillStyle=`rgba(255,255,255,${Math.max(.12,alpha)})`;ctx.fillRect(p.x,p.y,1.0,1.0);
+ }
+}
+function drawBlackHole(M){
+ const R=rsNorm(M),cx=S.w*.5+S.panX,cy=S.h*.53+S.panY;
+ const g=ctx.createRadialGradient(cx,cy,R*.45,cx,cy,R*5.2);g.addColorStop(0,'rgba(0,0,0,1)');g.addColorStop(.28,'rgba(0,0,0,.98)');g.addColorStop(.58,'rgba(255,255,255,.13)');g.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,R*5.2,0,Math.PI*2);ctx.fill();
+ // Event horizon / shadow.
+ ctx.fillStyle='#000';ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.fill();
+ // Bright photon ring, slightly elliptical from the viewing angle.
+ ctx.save();ctx.translate(cx,cy);ctx.rotate(-.06);ctx.scale(1,.48);for(let i=0;i<12;i++){ctx.beginPath();ctx.arc(0,0,R*(1.55+i*.025),0,Math.PI*2);ctx.strokeStyle=`rgba(255,255,255,${.045+i*.055})`;ctx.lineWidth=1.2+i*.18;ctx.shadowBlur=10+i;ctx.shadowColor='#fff';ctx.stroke()}ctx.restore();ctx.shadowBlur=0;
+ // Depth cue: inner black gradient and far-side halo.
+ const inner=ctx.createRadialGradient(cx-R*.2,cy-R*.1,R*.1,cx,cy,R*1.55);inner.addColorStop(0,'rgba(255,255,255,.10)');inner.addColorStop(.32,'rgba(0,0,0,.35)');inner.addColorStop(.68,'rgba(0,0,0,.85)');inner.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=inner;ctx.beginPath();ctx.arc(cx,cy,R*1.55,0,Math.PI*2);ctx.fill();
+}
+function render(now){if(!S.active){S.raf=0;return}const dt=Math.min(.05,(now-S.last)/1000);S.last=now;S.t+=dt;S.mass=massValue();
+ ctx.fillStyle='#000';ctx.fillRect(0,0,S.w,S.h);drawStars(S.mass);drawVolumetricGrid(S.mass);drawAccretion(S.mass);drawBlackHole(S.mass);
+ ctx.fillStyle='rgba(255,255,255,.68)';ctx.font='700 8px ui-monospace,SFMono-Regular,monospace';ctx.fillText('Rs = '+schwarzschildKm(S.mass).toFixed(1)+' km  ·  3D CURVATURE FIELD  ·  MASS '+S.mass.toFixed(1)+' M☉',12,S.h-12);
+ S.raf=requestAnimationFrame(render)}
+function hideOriginal(on){root.querySelectorAll('canvas').forEach(c=>{if(c!==canvas)c.style.visibility=on?'hidden':''})}
+function set(on){S.active=!!on;stage.classList.toggle('on',S.active);document.body.classList.toggle('cosmosim4d-on',S.active);hideOriginal(S.active);const b=document.getElementById('cosmosim4dToggle');if(b){b.classList.toggle('on',S.active);b.textContent=S.active?'◉ 4D VISION · ON':'◉ 4D VISION · OFF'}if(S.active){resize();S.last=performance.now();if(!S.raf)S.raf=requestAnimationFrame(render)}else if(S.raf){cancelAnimationFrame(S.raf);S.raf=0}}
+function installButton(){if(document.getElementById('cosmosim4dToggle'))return;const p=document.getElementById('panelBody');if(!p)return;const b=document.createElement('button');b.id='cosmosim4dToggle';b.type='button';b.className='secondary';b.textContent='◉ 4D VISION · OFF';b.onclick=()=>set(!S.active);p.appendChild(b)}
+canvas.addEventListener('wheel',e=>{if(!S.active)return;e.preventDefault();S.zoom=Math.max(.48,Math.min(2.7,S.zoom*Math.exp(-e.deltaY*.001)));},{passive:false});
+canvas.addEventListener('pointerdown',e=>{if(!S.active)return;S.drag=true;S.lx=e.clientX;S.ly=e.clientY;canvas.classList.add('dragging');canvas.setPointerCapture?.(e.pointerId)});
+canvas.addEventListener('pointermove',e=>{if(!S.active||!S.drag)return;const dx=e.clientX-S.lx,dy=e.clientY-S.ly;S.lx=e.clientX;S.ly=e.clientY;if(e.buttons===1){S.yaw+=dx*.006;S.pitch=Math.max(-1.15,Math.min(1.15,S.pitch+dy*.006))}else{S.panX+=dx;S.panY+=dy}});
+canvas.addEventListener('pointerup',e=>{S.drag=false;canvas.classList.remove('dragging');canvas.releasePointerCapture?.(e.pointerId)});
+canvas.addEventListener('pointercancel',()=>{S.drag=false;canvas.classList.remove('dragging')});
+canvas.addEventListener('touchstart',e=>{if(e.touches.length===2)S.pinch=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY)},{passive:true});
+canvas.addEventListener('touchmove',e=>{if(e.touches.length===2){const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);if(S.pinch>0)S.zoom=Math.max(.48,Math.min(2.7,S.zoom*d/S.pinch));S.pinch=d}},{passive:true});
+canvas.addEventListener('touchend',()=>{S.pinch=0},{passive:true});
+addEventListener('resize',resize);
+document.addEventListener('input',e=>{if(e.target?.id==='mass'&&S.active)S.mass=massValue()},true);
+document.addEventListener('click',e=>{const b=e.target.closest?.('.simChoice[data-sim]');if(b&&b.dataset.sim!=='blackhole'&&S.active)set(false)},true);
+new MutationObserver(installButton).observe(document.body,{childList:true,subtree:true});
+installButton();resize();
+window.__COSMOSIM_4D_SET_ACTIVE__=set;
+})();
