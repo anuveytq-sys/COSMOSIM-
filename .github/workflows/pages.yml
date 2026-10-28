@@ -77,7 +77,7 @@ jobs:
           vision4d = '<script src="./cosmosim-blackhole-4d-v4.js?v=20261028-grid-visible1"></script>\n'
           if vision4d not in html:
               html = html.replace("</body>", vision4d + "</body>", 1)
-          gridbend = '<script src="./cosmosim-blackhole-grid-bend.js?v=20261028-inward-grid1"></script>\n'
+          gridbend = '<script src="./cosmosim-blackhole-grid-bend.js?v=20261028-inward-grid2"></script>\n'
           if gridbend not in html:
               html = html.replace("</body>", gridbend + "</body>", 1)
           page.write_text(html, encoding="utf-8")
