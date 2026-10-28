@@ -2,7 +2,7 @@
 'use strict';
 if(window.__COSMOSIM_4D_LAZY_LOADER__)return;
 window.__COSMOSIM_4D_LAZY_LOADER__=true;
-const FOUR_D='./cosmosim-blackhole-4d-v4.js?v=20261028-local-curvature-visible3';
+const FOUR_D='./cosmosim-blackhole-4d-v4.js?v=20261028-resume-simulations-fix1';
 let loading=null,loaded=false;
 const buttonStyle='width:100%;margin-top:8px;background:#090d15;border:1px solid #e9edf7;color:#fff;border-radius:10px;padding:10px 12px;font-weight:700;cursor:pointer';
 function isBlackHole(){return (document.querySelector('.simChoice.active')?.dataset.sim||'blackhole')==='blackhole'}
