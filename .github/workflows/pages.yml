@@ -30,7 +30,9 @@ jobs:
           cp static/cosmosim-tracking.js _site/cosmosim-tracking.js
           cp static/cosmosim-space-ai.js _site/cosmosim-space-ai.js
           cp static/cosmosim-blackhole-4d-v4.js _site/cosmosim-blackhole-4d-v4.js
+          cp static/cosmosim-blackhole-grid-bend.js _site/cosmosim-blackhole-grid-bend.js
           node --check static/cosmosim-blackhole-4d-v4.js
+          node --check static/cosmosim-blackhole-grid-bend.js
           cp manifest.webmanifest _site/manifest.webmanifest
           cp sw.js _site/sw.js
           mkdir -p _site/icons
@@ -75,11 +77,15 @@ jobs:
           vision4d = '<script src="./cosmosim-blackhole-4d-v4.js?v=20261028-grid-visible1"></script>\n'
           if vision4d not in html:
               html = html.replace("</body>", vision4d + "</body>", 1)
+          gridbend = '<script src="./cosmosim-blackhole-grid-bend.js?v=20261028-inward-grid1"></script>\n'
+          if gridbend not in html:
+              html = html.replace("</body>", gridbend + "</body>", 1)
           page.write_text(html, encoding="utf-8")
           PY
 
           touch _site/.nojekyll
           test -s _site/cosmosim-blackhole-4d-v4.js
+          test -s _site/cosmosim-blackhole-grid-bend.js
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
