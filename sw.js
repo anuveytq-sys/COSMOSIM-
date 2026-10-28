@@ -1,4 +1,4 @@
-const CACHE_NAME = 'app-shell-v6';
+const CACHE_NAME = 'app-shell-v7';
 const APP_ROOT = new URL('./', self.location.href);
 const SHELL = [new URL('./', self.location.href).href, new URL('./index.html', self.location.href).href, new URL('./manifest.webmanifest', self.location.href).href, new URL('./icons/app.svg', self.location.href).href];
 self.addEventListener('install', event => { event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting())); });
