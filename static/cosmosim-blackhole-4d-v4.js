@@ -18,7 +18,18 @@ function rs(M){return .34*Math.pow(M/10,.82)}
 function rotate(p){const cy=Math.cos(S.yaw),sy=Math.sin(S.yaw),cp=Math.cos(S.pitch),sp=Math.sin(S.pitch),x=p.x*cy-p.z*sy,z0=p.x*sy+p.z*cy;return{x,y:p.y*cp-z0*sp,z:p.y*sp+z0*cp}}
 function project(p){const q=rotate(p),cam=29/S.zoom,depth=cam-q.z;if(depth<1.2)return null;const f=Math.min(S.w,S.h)*.94*cam/depth;return{x:S.w*.5+q.x*f+S.panX,y:S.h*.53-q.y*f+S.panY,z:q.z,depth}}
 // Static, isotropic Schwarzschild-inspired compression. Every fabric point moves only inward toward r=0.
-function warp(p,M){const r3=Math.hypot(p.x,p.y,p.z),rh=Math.hypot(p.x,p.z),R=rs(M),mass=Math.pow(Math.max(1,M/10),.72),safe=Math.max(.16,r3),influence=Math.exp(-r3/(5+mass*2.1)),pull=Math.min(.88,(.08+.13*mass)*Math.pow(R/(safe+R*.22),.7)*influence*2.6),scale=Math.max(.10,1-pull),well=(.25+1.45*mass)*Math.exp(-rh/(3.2+mass*2.1))*Math.sqrt(R/(Math.max(.16,rh)+R*.18));return{x:p.x*scale,y:p.y*scale-well,z:p.z*scale}}
+function warp(p,M){
+ // Stable isotropic 3D radial curvature: every point moves toward the origin along its own 3D radius.
+ // No one-way vertical offset, so increasing mass cannot shear the grid into a plane.
+ const r=Math.hypot(p.x,p.y,p.z);
+ if(r<1e-8)return{x:0,y:0,z:0};
+ const mass=Math.max(0,Math.min(1,(M-3)/47));
+ const range=4.2+mass*4.8;
+ const maxPull=.18+mass*.48;
+ const pull=maxPull*Math.exp(-r/range)/(1+.055*r);
+ const scale=Math.max(.48,1-pull);
+ return{x:p.x*scale,y:p.y*scale,z:p.z*scale};
+}
 function stroke(points,a,w){if(points.length<2)return;ctx.beginPath();let started=false;for(const p of points){if(!p){started=false;continue}if(!started){ctx.moveTo(p.x,p.y);started=true}else ctx.lineTo(p.x,p.y)}ctx.strokeStyle=`rgba(255,255,255,${a})`;ctx.lineWidth=w;ctx.stroke()}
 function avgDepth(points){let d=0,n=0;for(const p of points){if(p){d+=p.depth;n++}}return n?d/n:28}
 function gridAlpha(points,base){const z=avgDepth(points);const depth=Math.max(.62,Math.min(1.16,1-(z-8)*.010));return base*depth}
