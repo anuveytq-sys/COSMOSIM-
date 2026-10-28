@@ -29,6 +29,7 @@ jobs:
           cp static/index.html _site/index.html
           cp static/cosmosim-tracking.js _site/cosmosim-tracking.js
           cp static/cosmosim-space-ai.js _site/cosmosim-space-ai.js
+          cp static/cosmosim-blackhole-4d.js _site/cosmosim-blackhole-4d.js
           cp manifest.webmanifest _site/manifest.webmanifest
           cp sw.js _site/sw.js
           mkdir -p _site/icons
@@ -64,15 +65,18 @@ jobs:
           });
           """
           html = html[:start] + replacement + html[end:]
-          injection = '<script type="module" src="./interstellar-flight.js?v=91dedc9"></script>\\n'
+          injection = '<script type="module" src="./interstellar-flight.js?v=91dedc9"></script>\n'
           if injection not in html:
               html = html.replace("</body>", injection + "</body>", 1)
-          destruction = '<script type="module" src="./destruction-lab.js?v=destruction-lab-20261013-throughhole-open2"></script>\\n'
+          destruction = '<script type="module" src="./destruction-lab.js?v=destruction-lab-20261013-throughhole-open2"></script>\n'
           if destruction not in html:
               html = html.replace("</body>", destruction + "</body>", 1)
-          effects = '<script type="module" src="./destruction-object-effects.js?v=20261013-object-fx1"></script>\\n'
+          effects = '<script type="module" src="./destruction-object-effects.js?v=20261013-object-fx1"></script>\n'
           if effects not in html:
               html = html.replace("</body>", effects + "</body>", 1)
+          vision4d = '<script src="./cosmosim-blackhole-4d.js?v=20261028-4d1" defer></script>\n'
+          if vision4d not in html:
+              html = html.replace("</body>", vision4d + "</body>", 1)
           page.write_text(html, encoding="utf-8")
           PY
 
