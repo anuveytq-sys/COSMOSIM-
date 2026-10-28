@@ -31,7 +31,7 @@ jobs:
           cp static/cosmosim-space-ai.js _site/cosmosim-space-ai.js
           cp static/cosmosim-blackhole-4d-v2.js _site/cosmosim-blackhole-4d-v2.js
           node --check static/cosmosim-blackhole-4d-v2.js
-          cp manifest.webmanifest _site/manifest.webmanifest
+          manifest.webmanifest _site/manifest.webmanifest
           cp sw.js _site/sw.js
           mkdir -p _site/icons
           cp icons/app.svg _site/icons/app.svg
@@ -75,7 +75,7 @@ jobs:
           effects = '<script type="module" src="./destruction-object-effects.js?v=20261013-object-fx1"></script>\n'
           if effects not in html:
               html = html.replace("</body>", effects + "</body>", 1)
-          vision4d = '<script src="./cosmosim-blackhole-4d-v2.js?v=20261028-4d4"></script>\n'
+          vision4d = '<script src="./cosmosim-blackhole-4d-v2.js?v=20261028-volumetric5"></script>\n'
           if vision4d not in html:
               html = html.replace("</body>", vision4d + "</body>", 1)
           page.write_text(html, encoding="utf-8")
