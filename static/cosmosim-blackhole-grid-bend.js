@@ -14,7 +14,7 @@ function setup(){
  if(!stage||canvas)return false;
  canvas=document.createElement('canvas');canvas.id='cosmosim4dGridBend';stage.appendChild(canvas);ctx=canvas.getContext('2d');resize();return true;
 }
-function resize(){if(!canvas)return;w=Math.max(1,stage.clientWidth);h=Math.max(1,stage.clientHeight);dpr=Math.min(2,devicePixelRatio||1);canvas.width=w*dpr;canvas.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0)}
+function resize(){if(!canvas)return;w=Math.max(1,stage.clientWidth);h=Math.max(1,stage.clientHeight);dpr=Math.min(2,devicePixelRatio||1);canvas.width=Math.floor(w*dpr);canvas.height=Math.floor(h*dpr);ctx.setTransform(dpr,0,0,dpr,0,0)}
 function mass(){const m=Number(document.getElementById('mass')?.value);return Number.isFinite(m)?Math.max(3,Math.min(50,m)):10}
 function holeRadius(M){return Math.min(w,h)*.040*Math.pow(M/10,.82)*1.42}
 function project(x,y,z){
@@ -24,17 +24,29 @@ function project(x,y,z){
  const f=Math.min(w,h)*.90*cam/depth;
  return {x:w*.5+x1*f,y:h*.53-y1*f,z:z2,depth};
 }
+
+// Schwarzschild-inspired visual coordinate deformation.
+// Rs = 2GM/c^2.  The real metric is not a literal rubber sheet; this renderer
+// uses the radial spatial compression suggested by the Schwarzschild spatial
+// metric and extends it smoothly outward so the 3-D curvature is actually visible.
 function bend(x,y,z,M){
- const r=Math.hypot(x,y,z);if(r<1e-4)return {x:0,y:0,z:0};
+ const r=Math.hypot(x,y,z);if(r<1e-5)return{x:0,y:0,z:0};
  const rs=.34*Math.pow(M/10,.82);
- const q=rs/(r+rs*.20);
- const pull=(.10*q+.62*q*q+.24*Math.pow(q,3))*Math.exp(-r/8.5);
- const scale=Math.max(.16,1-pull);
+ const horizon=rs*1.18;
+ // Long-range field: visible well beyond the immediate event-horizon region.
+ const field=4.9*Math.pow(M/10,.52);
+ const q=field/(r+field);
+ const near=Math.min(1,.88*Math.pow(q,1.18)+.18*Math.pow(rs/(r+rs),2));
+ // Smooth inward compression. Off-axis grid lines therefore bow toward r=0
+ // instead of staying straight until the last few pixels around the hole.
+ const scale=Math.max(.12,1-near);
  return {x:x*scale,y:y*scale,z:z*scale};
 }
 function line(points,a,width){ctx.beginPath();let ok=false;for(const p of points){if(!p){ok=false;continue}if(!ok){ctx.moveTo(p.x,p.y);ok=true}else ctx.lineTo(p.x,p.y)}ctx.strokeStyle=`rgba(255,255,255,${a})`;ctx.lineWidth=width;ctx.stroke()}
 function draw(M){
- const max=16,step=1.55,N=96;
+ const max=16,step=1.55,N=110;
+ // Three orthogonal 3-D line families. Because bend() acts on the full
+ // (x,y,z) radius, every family curves inward toward the same centre.
  for(const axis of ['x','y','z']){
   for(let a=-max;a<=max+.01;a+=step)for(let b=-max;b<=max+.01;b+=step){
    const pts=[];
@@ -43,31 +55,35 @@ function draw(M){
     const p=axis==='x'?{x:u,y:a,z:b}:axis==='y'?{x:a,y:u,z:b}:{x:a,y:b,z:u};
     const q=bend(p.x,p.y,p.z,M),s=project(q);pts.push(s);
    }
-   line(pts,.050,.62);
+   line(pts,.105,.78);
   }
  }
- for(let ri=0;ri<13;ri++){
-  const r=1.25+ri*.92;
-  for(let lat=0;lat<9;lat++){
-   const el=-Math.PI/2+(lat+1)*Math.PI/10,ce=Math.cos(el),se=Math.sin(el),pts=[];
-   for(let k=0;k<=120;k++){const a=k/120*Math.PI*2;const q=bend(r*ce*Math.cos(a),r*se,r*ce*Math.sin(a),M);pts.push(project(q))}
-   line(pts,.035,.48);
+ // Concentric spherical shells make the surrounding fabric visibly volumetric,
+ // not a single horizontal plane. They compress progressively toward the hole.
+ for(let ri=0;ri<18;ri++){
+  const r=1.05+ri*(max-1.05)/17;
+  for(let lat=0;lat<11;lat++){
+   const el=-Math.PI/2+(lat+1)*Math.PI/12,ce=Math.cos(el),se=Math.sin(el),pts=[];
+   for(let k=0;k<=150;k++){const a=k/150*Math.PI*2;const q=bend(r*ce*Math.cos(a),r*se,r*ce*Math.sin(a),M);pts.push(project(q))}
+   line(pts,.055,.58);
   }
-  for(let lon=0;lon<18;lon++){
-   const a=lon/18*Math.PI*2,pts=[];
-   for(let k=0;k<=90;k++){const el=-Math.PI/2+k/90*Math.PI,ce=Math.cos(el),se=Math.sin(el);const q=bend(r*ce*Math.cos(a),r*se,r*ce*Math.sin(a),M);pts.push(project(q))}
-   line(pts,.035,.48);
+  for(let lon=0;lon<24;lon++){
+   const a=lon/24*Math.PI*2,pts=[];
+   for(let k=0;k<=110;k++){const el=-Math.PI/2+k/110*Math.PI,ce=Math.cos(el),se=Math.sin(el);const q=bend(r*ce*Math.cos(a),r*se,r*ce*Math.sin(a),M);pts.push(project(q))}
+   line(pts,.055,.58);
   }
  }
- const rays=52;
- const exclude=holeRadius(M)*1.65;
+ // Radial geodesic-like tracks reinforce that the pull is inward in every
+ // direction, not just across one plane.
+ const rays=72;
+ const exclude=holeRadius(M)*1.58;
  for(let ray=0;ray<rays;ray++){
-  const az=ray/rays*Math.PI*2,el=-.95+(ray%27)/26*1.9,ce=Math.cos(el),se=Math.sin(el),pts=[];
-  for(let j=0;j<=100;j++){
-   const r=.35+15.8*j/100,q=bend(r*ce*Math.cos(az),r*se,r*ce*Math.sin(az),M),p=project(q);
+  const az=ray/rays*Math.PI*2,el=-.95+(ray%37)/36*1.9,ce=Math.cos(el),se=Math.sin(el),pts=[];
+  for(let j=0;j<=120;j++){
+   const r=.28+15.72*j/120,q=bend(r*ce*Math.cos(az),r*se,r*ce*Math.sin(az),M),p=project(q);
    if(p){const rr=Math.hypot(p.x-w*.5,p.y-h*.53);pts.push(rr<exclude?null:p)}else pts.push(null);
   }
-  line(pts,.050,.58);
+  line(pts,.075,.62);
  }
  ctx.save();ctx.globalCompositeOperation='destination-out';ctx.beginPath();ctx.ellipse(w*.5,h*.53,exclude,exclude*.54,0,0,Math.PI*2);ctx.fill();ctx.restore();
 }
