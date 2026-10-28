@@ -1260,6 +1260,8 @@ Object.values(extraGroups).forEach(g=>g.visible=false);
 
 function animate(){
  requestAnimationFrame(animate);
+ // Pause the normal Three.js work while Black Hole Lab 4D Vision owns the frame.
+ if(typeof window.__COSMOSIM_4D_IS_ACTIVE__==='function'&&window.__COSMOSIM_4D_IS_ACTIVE__())return;
  if(!paused){
   time+=.01;deepSky.material.uniforms.uTime.value=time;
   if(sx.active!=="blackhole"){sx.t+=.016*speed;updateExtraSimulation();}
