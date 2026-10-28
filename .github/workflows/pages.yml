@@ -74,7 +74,10 @@ jobs:
           effects = '<script type="module" src="./destruction-object-effects.js?v=20261013-object-fx1"></script>\n'
           if effects not in html:
               html = html.replace("</body>", effects + "</body>", 1)
-          page.write_text(html, encoding="utf-8")
+          four_d = '<script type="module" src="./cosmosim-blackhole-4d-v4.js?v=20261028-on-demand-blackhole1"></script>\\n'
+          if four_d not in html:
+              html = html.replace("</body>", four_d + "</body>", 1)
+                    page.write_text(html, encoding="utf-8")
           PY
 
           touch _site/.nojekyll
