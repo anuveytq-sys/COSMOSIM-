@@ -30,8 +30,10 @@ jobs:
           cp static/cosmosim-tracking.js _site/cosmosim-tracking.js
           cp static/cosmosim-space-ai.js _site/cosmosim-space-ai.js
           cp static/cosmosim-blackhole-4d-v4.js _site/cosmosim-blackhole-4d-v4.js
+          cp static/cosmosim-4d-lazy-loader.js _site/cosmosim-4d-lazy-loader.js
           cp static/cosmosim-blackhole-grid-bend.js _site/cosmosim-blackhole-grid-bend.js
           node --check static/cosmosim-blackhole-4d-v4.js
+          node --check static/cosmosim-4d-lazy-loader.js
           node --check static/cosmosim-blackhole-grid-bend.js
           cp manifest.webmanifest _site/manifest.webmanifest
           cp sw.js _site/sw.js
@@ -74,7 +76,7 @@ jobs:
           effects = '<script type="module" src="./destruction-object-effects.js?v=20261013-object-fx1"></script>\n'
           if effects not in html:
               html = html.replace("</body>", effects + "</body>", 1)
-          four_d = '<script type="module" src="./cosmosim-blackhole-4d-v4.js?v=20261028-on-demand-multilab2"></script>\n'
+          four_d = '<script src="./cosmosim-4d-lazy-loader.js?v=20261028-lazy-gated1"></script>\n'
           if four_d not in html:
               html = html.replace("</body>", four_d + "</body>", 1)
           page.write_text(html, encoding="utf-8")
@@ -82,6 +84,7 @@ jobs:
 
           touch _site/.nojekyll
           test -s _site/cosmosim-blackhole-4d-v4.js
+          test -s _site/cosmosim-4d-lazy-loader.js
           test -s _site/cosmosim-blackhole-grid-bend.js
 
       - name: Configure GitHub Pages
