@@ -80,7 +80,7 @@ jobs:
           effects = '<script type="module" src="./destruction-object-effects.js?v=20261013-object-fx1"></script>\n'
           if effects not in html:
               html = html.replace("</body>", effects + "</body>", 1)
-          four_d = '<script src="./cosmosim-4d-lazy-loader.js?v=20261028-blackhole-original1"></script>\n'
+          four_d = '<script src="./cosmosim-4d-lazy-loader.js?v=20261028-blackhole-wellfix2"></script>\n'
           if four_d not in html:
               html = html.replace("</body>", four_d + "</body>", 1)
           page.write_text(html, encoding="utf-8")
