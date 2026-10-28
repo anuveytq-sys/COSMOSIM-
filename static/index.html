@@ -1095,6 +1095,7 @@ function chooseSim(id){
   controls.minDistance=7;controls.maxDistance=65;updateLabels();
  }
  controls.update();
+ if(typeof window.__COSMOSIM_4D_IS_ACTIVE__==='function'&&window.__COSMOSIM_4D_IS_ACTIVE__())composer.render();
 }
 document.getElementById("hudToggle").addEventListener("click",()=>{
  const hidden=document.body.classList.toggle("hud-hidden");
@@ -1324,6 +1325,7 @@ function animate(){
  controls.update();composer.render();
 }
 window.__COSMOSIM_RESUME_MAIN_RENDER__=()=>{if(!mainRenderRaf)animate()};
+window.__COSMOSIM_RENDER_MAIN_ONCE__=()=>{controls.update();composer.render()};
 animate();
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);composer.setSize(innerWidth,innerHeight);bloomPass.setSize(innerWidth,innerHeight)});
 </script>
