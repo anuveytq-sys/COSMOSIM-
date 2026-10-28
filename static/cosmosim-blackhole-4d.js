@@ -4,229 +4,431 @@
   window.__COSMOSIM_BLACKHOLE_4D__ = true;
 
   const $ = (s, r = document) => r.querySelector(s);
-  const state = { on:false, mass:10, zoom:1, minZoom:.55, maxZoom:4.5, w:1, h:1, dpr:1, raf:0, last:0, t:0, panX:0, panY:0, drag:false, dx:0, dy:0, pinch:0, stars:[] };
+  const state = {
+    enabled: false,
+    mass: 10,
+    disk: true,
+    time: 0,
+    raf: 0,
+    three: null,
+    renderer: null,
+    scene: null,
+    camera: null,
+    controls: null,
+    root: null,
+    funnel: null,
+    grid: new THREEGroupPlaceholder(),
+    lensing: null,
+    diskGroup: null,
+    stars: null,
+    blackHole: null,
+    photonRing: null,
+    resizeObserver: null
+  };
+
+  // The placeholder is replaced immediately after THREE is loaded. Keeping the
+  // state shape simple makes this module safe to load beside the original lab.
+  function THREEGroupPlaceholder() {}
 
   const css = document.createElement('style');
   css.textContent = `
-    #cosmosim4DButton{width:100%;margin-top:8px;background:linear-gradient(135deg,#171c2d,#39435f);border:1px solid #93a4cf;color:#f5f7ff}
-    #cosmosim4DButton.is-on{background:#f5f7ff;color:#05070d;border-color:#fff;box-shadow:0 0 20px #fff8}
-    #cosmosim4DStage{position:absolute;inset:0;display:none;overflow:hidden;background:#000;z-index:5;touch-action:none}
+    #cosmosim4DButton{
+      width:100%;margin-top:8px;background:linear-gradient(135deg,#151a28,#35415f);
+      border:1px solid #8e9fca;color:#f7f9ff;box-shadow:0 0 14px #9fb5ff12
+    }
+    #cosmosim4DButton.is-on{
+      background:linear-gradient(135deg,#ffffff,#cbd4e5);color:#05070b;
+      border-color:#fff;box-shadow:0 0 24px #fff9
+    }
+    #cosmosim4DStage{
+      position:absolute;inset:0;display:none;overflow:hidden;z-index:1;
+      background:#010204;touch-action:none
+    }
     #cosmosim4DStage.is-on{display:block}
-    #cosmosim4DCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab;touch-action:none}
-    #cosmosim4DCanvas.dragging{cursor:grabbing}
-    #cosmosim4DBadge{position:absolute;left:50%;top:12px;transform:translateX(-50%);padding:7px 11px;border:1px solid #fff4;border-radius:999px;background:#000b;color:#fff;font:700 9px/1 ui-monospace,monospace;letter-spacing:.12em;pointer-events:none;white-space:nowrap}
+    #cosmosim4DCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+    #cosmosim4DBadge{
+      position:absolute;left:50%;top:14px;transform:translateX(-50%);pointer-events:none;
+      padding:7px 12px;border:1px solid #ffffff35;border-radius:999px;background:#020306a8;
+      color:#f8f9ff;font:800 9px/1 ui-monospace,SFMono-Regular,monospace;letter-spacing:.14em;
+      white-space:nowrap;text-shadow:0 0 12px #fff
+    }
+    #cosmosim4DHint{
+      position:absolute;left:50%;bottom:14px;transform:translateX(-50%);pointer-events:none;
+      color:#c8d0dfaa;font:700 9px/1 ui-monospace,SFMono-Regular,monospace;letter-spacing:.08em
+    }
+    @media(max-width:520px){#cosmosim4DBadge{top:10px;font-size:8px}#cosmosim4DHint{bottom:8px;font-size:8px}}
   `;
   document.head.appendChild(css);
 
   const viewport = $('#space');
   if (!viewport) return;
+
   const stage = document.createElement('div');
   stage.id = 'cosmosim4DStage';
-  stage.innerHTML = '<canvas id="cosmosim4DCanvas" aria-label="Black hole 4D vision"></canvas><div id="cosmosim4DBadge">4D VISION · SCHWARZSCHILD SPACETIME</div>';
+  stage.innerHTML = `
+    <canvas id="cosmosim4DCanvas" aria-label="Three dimensional black hole spacetime funnel"></canvas>
+    <div id="cosmosim4DBadge">4D VISION · SCHWARZSCHILD SPACETIME</div>
+    <div id="cosmosim4DHint">DRAG · PAN / SCROLL · ZOOM / PINCH · ZOOM</div>
+  `;
   viewport.appendChild(stage);
   const canvas = $('#cosmosim4DCanvas', stage);
-  const ctx = canvas.getContext('2d', { alpha:false });
 
-  function resize(){
-    const r=stage.getBoundingClientRect();
-    state.w=Math.max(1,r.width); state.h=Math.max(1,r.height); state.dpr=Math.min(2,devicePixelRatio||1);
-    canvas.width=Math.floor(state.w*state.dpr); canvas.height=Math.floor(state.h*state.dpr);
-    ctx.setTransform(state.dpr,0,0,state.dpr,0,0);
-    if(!state.stars.length) seedStars();
-  }
-
-  function currentMass(){
-    const el=$('#mass'); const m=el?Number(el.value):state.mass;
-    state.mass=Number.isFinite(m)?Math.max(1,Math.min(50,m)):10; return state.mass;
-  }
-
-  function seedStars(){
-    const n=Math.min(520,Math.max(220,Math.floor(state.w*state.h/9000)));
-    state.stars=Array.from({length:n},(_,i)=>({
-      x:((Math.sin(i*12.9898)*43758.5453)%1+1)%1,
-      y:((Math.sin(i*78.233+17.1)*43758.5453)%1+1)%1,
-      s:.25+((i*37%100)/100)*1.35,
-      a:.18+((i*53%100)/100)*.62
-    }));
-  }
-
-  // Schwarzschild radius: Rs = 2GM/c². The mass relationship is retained,
-  // then normalised to the viewport so the lab remains visually readable.
-  function radii(mass){
-    const unit=Math.min(state.w,state.h);
-    const rs=Math.max(8,unit*.014)*(mass/6)*state.zoom;
-    return {rs,photon:rs*1.5,shadow:rs*2.6,disk:rs*4.8};
-  }
-
-  // Weak-field light deflection: alpha ≈ 4GM/(c²b) = 2Rs/b.
-  function gravitationalDeflection(r,mass){
-    const rs=radii(mass).rs; const b=Math.max(r,rs*1.02);
-    return Math.min(1.65,2*rs/b);
-  }
-
-  // Embedding-diagram-inspired Schwarzschild spatial slice. The steep rise
-  // close to Rs creates the visible funnel/depth rather than a flat sheet.
-  function funnelDepth(r,mass){
-    const rs=radii(mass).rs; const u=Math.max(0,r-rs*1.05);
-    return 2.0*Math.sqrt(rs*u);
-  }
-
-  function project(r,a,mass,cx,cy){
-    const rs=radii(mass).rs;
-    const z=funnelDepth(r,mass);
-    const deflection=gravitationalDeflection(r,mass);
-    const bentR=Math.max(rs*.96,r*(1-.22*deflection));
-    const x=cx+Math.cos(a)*bentR+state.panX;
-    const y=cy+Math.sin(a)*bentR*.54-z*.43+state.panY;
-    return {x,y,z,r:bentR};
-  }
-
-  function strokePath(points,alpha,width,glow=0){
-    if(points.length<2)return;
-    ctx.save(); ctx.beginPath();
-    points.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));
-    ctx.strokeStyle=`rgba(245,248,255,${alpha})`; ctx.lineWidth=width;
-    if(glow){ctx.shadowBlur=glow;ctx.shadowColor='#fff';}
-    ctx.stroke(); ctx.restore();
-  }
-
-  function drawStars(cx,cy,mass){
-    const lens=radii(mass).shadow*1.9;
-    for(const s of state.stars){
-      const x=s.x*state.w,y=s.y*state.h,dx=x-cx,dy=y-cy,r=Math.hypot(dx,dy);
-      let sx=x,sy=y;
-      if(r<lens&&r>1){const pull=Math.min(.34,(lens-r)/lens*.30);sx=cx+dx*(1-pull);sy=cy+dy*(1-pull);}
-      ctx.fillStyle=`rgba(255,255,255,${s.a})`;ctx.beginPath();ctx.arc(sx,sy,s.s,0,Math.PI*2);ctx.fill();
-    }
-  }
-
-  function drawFunnelGrid(cx,cy,mass){
-    const unit=Math.min(state.w,state.h),maxR=Math.max(state.w,state.h)*.92/state.zoom,rs=radii(mass).rs;
-    const rings=Math.max(25,Math.min(46,Math.floor(unit/18))),spokes=64;
-
-    // Curved latitude rings on the Schwarzschild funnel.
-    for(let i=0;i<rings;i++){
-      const u=i/(rings-1),r=rs*1.03+Math.pow(u,1.25)*maxR,pts=[];
-      for(let k=0;k<=240;k++){const a=k/240*Math.PI*2;pts.push(project(r,a,mass,cx,cy));}
-      const depth=Math.max(0,Math.min(1,(r-rs)/maxR));
-      strokePath(pts,.12+.16*(1-depth),i<4?1:.62,i<3?4:0);
-    }
-
-    // Radial tracks: every line follows the same inward gravitational
-    // deflection field, so there are no wandering/free-floating grid lines.
-    for(let i=0;i<spokes;i++){
-      const a0=i/spokes*Math.PI*2,pts=[];
-      for(let j=0;j<=70;j++){
-        const u=j/70,r=rs*1.02+Math.pow(u,.78)*maxR,bend=gravitationalDeflection(r,mass);
-        const a=a0+(Math.PI/18)*bend*Math.sign(Math.sin(a0*2+.3));
-        pts.push(project(r,a,mass,cx,cy));
+  const originals = () => [...viewport.querySelectorAll('canvas:not(#cosmosim4DCanvas)')];
+  function setOriginalVisible(show) {
+    originals().forEach(node => {
+      if (show) {
+        node.style.display = node.dataset.cosmosim4dDisplay || '';
+        node.style.visibility = node.dataset.cosmosim4dVisibility || '';
+      } else {
+        if (node.dataset.cosmosim4dDisplay === undefined) node.dataset.cosmosim4dDisplay = node.style.display;
+        if (node.dataset.cosmosim4dVisibility === undefined) node.dataset.cosmosim4dVisibility = node.style.visibility;
+        node.style.display = 'none';
+        node.style.visibility = 'hidden';
       }
-      strokePath(pts,.14+.09*(i%4===0),.55);
-    }
-
-    // Dense inner mesh: strongest curvature is concentrated around the hole.
-    for(let i=0;i<13;i++){
-      const r=rs*(1.04+i*.22),pts=[];
-      for(let k=0;k<=220;k++){const a=k/220*Math.PI*2;pts.push(project(r,a,mass,cx,cy));}
-      strokePath(pts,.18-i*.008,1,i<2?6:0);
-    }
-  }
-
-  function drawLensingArcs(cx,cy,mass){
-    const {photon,shadow}=radii(mass);
-    ctx.save();ctx.translate(cx,cy);ctx.scale(1,.55);
-    for(let n=0;n<7;n++){
-      const rr=shadow*(1.10+n*.22);
-      ctx.beginPath();ctx.arc(0,0,rr,Math.PI*.08,Math.PI*.92);ctx.strokeStyle=`rgba(255,255,255,${.06+.025*(6-n)})`;ctx.lineWidth=1.1;ctx.stroke();
-      ctx.beginPath();ctx.arc(0,0,rr,Math.PI*1.08,Math.PI*1.92);ctx.stroke();
-    }
-    ctx.restore();
-    ctx.save();ctx.translate(cx,cy);ctx.scale(1,.55);ctx.beginPath();ctx.arc(0,0,photon,0,Math.PI*2);
-    ctx.strokeStyle='rgba(255,255,255,.62)';ctx.lineWidth=Math.max(1.4,radii(mass).rs*.055);ctx.shadowBlur=18;ctx.shadowColor='#fff';ctx.stroke();ctx.restore();
-  }
-
-  function drawAccretionDisk(cx,cy,mass,time){
-    const {rs,disk}=radii(mass),inner=rs*2.2,outer=disk;
-    ctx.save();ctx.translate(cx,cy-rs*.06);ctx.rotate(-.08);ctx.scale(1,.27);
-    for(let layer=0;layer<10;layer++){
-      const r=inner+(outer-inner)*layer/10;ctx.beginPath();ctx.arc(0,0,r,Math.PI*.04,Math.PI*1.96);
-      const phase=time*(.55+layer*.018),front=.34+.16*Math.sin(phase+layer*.7);
-      ctx.strokeStyle=`rgba(255,255,255,${front})`;ctx.lineWidth=Math.max(1.2,rs*(.055-layer*.002));ctx.shadowBlur=layer<3?16:5;ctx.shadowColor='#fff';ctx.stroke();
-    }
-    for(let i=0;i<110;i++){
-      const f=i/110,r=inner+(outer-inner)*f,a=(i*2.399+time*(.18+f*.26))%(Math.PI*2),x=Math.cos(a)*r,y=Math.sin(a)*r;
-      const alpha=.08+.30*(1-f)+.12*Math.max(0,Math.cos(a));ctx.fillStyle=`rgba(255,255,255,${alpha})`;ctx.beginPath();ctx.arc(x,y,Math.max(.45,rs*.018*(1-f*.45)),0,Math.PI*2);ctx.fill();
-    }
-    ctx.restore();
-  }
-
-  function drawBlackHole(cx,cy,mass){
-    const {rs,shadow,photon}=radii(mass);
-    const halo=ctx.createRadialGradient(cx,cy,shadow*.25,cx,cy,shadow*2.5);
-    halo.addColorStop(0,'rgba(255,255,255,.18)');halo.addColorStop(.25,'rgba(255,255,255,.08)');halo.addColorStop(.6,'rgba(255,255,255,.025)');halo.addColorStop(1,'rgba(255,255,255,0)');
-    ctx.fillStyle=halo;ctx.beginPath();ctx.arc(cx,cy,shadow*2.5,0,Math.PI*2);ctx.fill();
-
-    // Deep central shadow: the event horizon itself emits no light.
-    const core=ctx.createRadialGradient(cx,cy-rs*.18,rs*.08,cx,cy,rs*1.35);
-    core.addColorStop(0,'#000');core.addColorStop(.75,'#000');core.addColorStop(1,'#080808');
-    ctx.fillStyle=core;ctx.beginPath();ctx.arc(cx,cy,rs*1.04,0,Math.PI*2);ctx.fill();
-
-    // Relativistic photon ring / critical curve: r_ph = 3sqrt(3)GM/c² = 1.5Rs.
-    ctx.save();ctx.translate(cx,cy);ctx.scale(1,.55);
-    ctx.beginPath();ctx.arc(0,0,photon,0,Math.PI*2);ctx.strokeStyle='rgba(255,255,255,.90)';ctx.lineWidth=Math.max(1.5,rs*.065);ctx.shadowBlur=24;ctx.shadowColor='#fff';ctx.stroke();
-    ctx.beginPath();ctx.arc(0,0,photon*1.13,Math.PI*.12,Math.PI*.94);ctx.strokeStyle='rgba(255,255,255,.34)';ctx.lineWidth=Math.max(1,rs*.035);ctx.stroke();
-    ctx.restore();
-
-    // Foreground rim supplies a spherical depth cue without drawing a fake surface.
-    ctx.save();ctx.translate(cx,cy);ctx.scale(1,.56);ctx.beginPath();ctx.arc(0,0,rs*1.03,Math.PI*.08,Math.PI*1.92);ctx.strokeStyle='rgba(255,255,255,.28)';ctx.lineWidth=Math.max(1,rs*.025);ctx.stroke();ctx.restore();
-  }
-
-  function draw(){
-    if(!state.on){state.raf=0;return;}
-    const now=performance.now(),dt=Math.min(.05,(now-state.last)/1000||0);state.last=now;state.t+=dt;
-    ctx.setTransform(state.dpr,0,0,state.dpr,0,0);ctx.fillStyle='#000';ctx.fillRect(0,0,state.w,state.h);
-    const mass=currentMass(),cx=state.w*.5,cy=state.h*.57;
-    drawStars(cx,cy,mass);drawFunnelGrid(cx,cy,mass);drawLensingArcs(cx,cy,mass);drawAccretionDisk(cx,cy,mass,state.t);drawBlackHole(cx,cy,mass);
-    state.raf=requestAnimationFrame(draw);
-  }
-
-  // Hide only the original simulation canvas while 4D is active. Restore its
-  // exact prior inline state when 4D is switched off.
-  const originals=()=>[...viewport.querySelectorAll('canvas:not(#cosmosim4DCanvas)')];
-  function setOriginalVisible(show){
-    originals().forEach(node=>{
-      if(show){node.style.display=node.dataset.cosmosim4dDisplay||'';node.style.visibility=node.dataset.cosmosim4dVisibility||'';}
-      else{node.dataset.cosmosim4dDisplay=node.style.display;node.dataset.cosmosim4dVisibility=node.style.visibility;node.style.display='none';node.style.visibility='hidden';}
     });
   }
 
+  async function loadThree() {
+    if (state.three) return state.three;
+    const THREE = await import('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js');
+    const controlsModule = await import('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js');
+    state.three = { THREE, OrbitControls: controlsModule.OrbitControls };
+    return state.three;
+  }
+
+  function physicalRsKm(mass) {
+    // Schwarzschild radius for one solar mass is about 2.953 km.
+    return 2.95325008 * mass;
+  }
+
+  function buildStars(THREE) {
+    const count = 6500;
+    const pos = new Float32Array(count * 3);
+    const col = new Float32Array(count * 3);
+    const c1 = new THREE.Color(0xffffff), c2 = new THREE.Color(0xc8d8ff), c3 = new THREE.Color(0xffe7c2);
+    for (let i = 0; i < count; i++) {
+      const radius = 75 + Math.random() * 260;
+      const u = Math.random() * 2 - 1;
+      const a = Math.random() * Math.PI * 2;
+      const s = Math.sqrt(1 - u * u);
+      pos[i * 3] = radius * s * Math.cos(a);
+      pos[i * 3 + 1] = radius * u;
+      pos[i * 3 + 2] = radius * s * Math.sin(a);
+      const c = Math.random() < .14 ? c3 : (Math.random() < .35 ? c2 : c1);
+      const b = .42 + Math.random() * .58;
+      col[i * 3] = c.r * b; col[i * 3 + 1] = c.g * b; col[i * 3 + 2] = c.b * b;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const mat = new THREE.PointsMaterial({
+      size: .42, sizeAttenuation: true, vertexColors: true, transparent: true,
+      opacity: .92, depthWrite: false, blending: THREE.AdditiveBlending
+    });
+    return new THREE.Points(geo, mat);
+  }
+
+  function makeGlowTexture(THREE) {
+    const c = document.createElement('canvas'); c.width = 256; c.height = 256;
+    const x = c.getContext('2d');
+    const g = x.createRadialGradient(128,128,0,128,128,128);
+    g.addColorStop(0,'rgba(255,255,255,1)');
+    g.addColorStop(.12,'rgba(255,255,255,.96)');
+    g.addColorStop(.32,'rgba(255,245,205,.52)');
+    g.addColorStop(.62,'rgba(255,180,75,.13)');
+    g.addColorStop(1,'rgba(255,120,20,0)');
+    x.fillStyle=g; x.fillRect(0,0,256,256);
+    return new THREE.CanvasTexture(c);
+  }
+
+  function buildFunnel(THREE, mass) {
+    const group = new THREE.Group();
+    group.name = 'SchwarzschildSpacetimeFunnel';
+
+    const minDim = Math.min(stage.clientWidth || innerWidth, stage.clientHeight || innerHeight);
+    // Visual normalization only: physical Rs is reported separately. The
+    // geometry preserves the Schwarzschild mass relationship and the embedding
+    // diagram shape while remaining legible on a screen.
+    const rs = Math.max(1.55, minDim * (.009 + mass * .00034));
+    const outer = Math.max(20, Math.min(38, minDim * .032));
+    const depth = rs * (2.8 + .055 * mass);
+    const radialSteps = 30;
+    const angularSteps = 96;
+
+    function radiusAt(i) {
+      const u = i / radialSteps;
+      return rs * 1.08 + Math.pow(u, 1.72) * (outer - rs * 1.08);
+    }
+    function yAt(r) {
+      // Schwarzschild embedding-diagram-inspired depth: z ~ -2 sqrt(Rs(r-Rs)).
+      // The coefficient is visually normalized, while Rs itself scales with M.
+      return -depth * Math.sqrt(Math.max(0, (r - rs) / Math.max(.001, outer - rs)));
+    }
+    function point(r, a) {
+      return new THREE.Vector3(Math.cos(a) * r, yAt(r), Math.sin(a) * r);
+    }
+
+    // A subtle dark surface gives the grid a continuous 3D substrate.
+    const verts = [];
+    const indices = [];
+    for (let i=0;i<=radialSteps;i++) {
+      const r=radiusAt(i);
+      for (let j=0;j<=angularSteps;j++) {
+        const p=point(r,j/angularSteps*Math.PI*2);
+        verts.push(p.x,p.y,p.z);
+      }
+    }
+    for (let i=0;i<radialSteps;i++) for (let j=0;j<angularSteps;j++) {
+      const a=i*(angularSteps+1)+j, b=a+1, c=a+(angularSteps+1), d=c+1;
+      indices.push(a,c,b,b,c,d);
+    }
+    const surfaceGeo=new THREE.BufferGeometry();
+    surfaceGeo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
+    surfaceGeo.setIndex(indices); surfaceGeo.computeVertexNormals();
+    const surfaceMat=new THREE.MeshStandardMaterial({
+      color:0x05070a,roughness:.94,metalness:.04,transparent:true,opacity:.62,
+      side:THREE.DoubleSide
+    });
+    const surface=new THREE.Mesh(surfaceGeo,surfaceMat); group.add(surface);
+
+    // Circumferential grid rings: every ring is a true contour on the same funnel.
+    const ringMat=new THREE.LineBasicMaterial({color:0xdfe7f2,transparent:true,opacity:.28});
+    const innerMat=new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:.52});
+    const radialMat=new THREE.LineBasicMaterial({color:0xeaf0f8,transparent:true,opacity:.34});
+    const glowMat=new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:.68});
+    const grid=new THREE.Group(); grid.name='InwardCurvatureGrid';
+
+    for(let i=0;i<=radialSteps;i++){
+      const r=radiusAt(i),pts=[];
+      for(let j=0;j<=angularSteps;j++) pts.push(point(r,j/angularSteps*Math.PI*2));
+      const geo=new THREE.BufferGeometry().setFromPoints(pts);
+      grid.add(new THREE.LineLoop(geo,i<5?innerMat:ringMat));
+    }
+    // Radial lines are fixed geodesic-like tracks on the funnel. They never
+    // wander sideways: each follows a constant angular coordinate into the well.
+    const spokeCount=64;
+    for(let j=0;j<spokeCount;j++){
+      const a=j/spokeCount*Math.PI*2,pts=[];
+      for(let i=0;i<=radialSteps;i++) pts.push(point(radiusAt(i),a));
+      const geo=new THREE.BufferGeometry().setFromPoints(pts);
+      grid.add(new THREE.Line(geo,j%8===0?glowMat:radialMat));
+    }
+    group.add(grid);
+    group.userData={rs,outer,depth,radialSteps,angularSteps,radiusAt,yAt,point,grid};
+    return group;
+  }
+
+  function buildBlackHole(THREE, mass) {
+    const group = new THREE.Group(); group.name='RelativisticBlackHole';
+    const minDim=Math.min(stage.clientWidth||innerWidth,stage.clientHeight||innerHeight);
+    const rs=Math.max(1.55,minDim*(.009+mass*.00034));
+
+    const shadowMat=new THREE.MeshBasicMaterial({color:0x000000,roughness:1});
+    const shadow=new THREE.Mesh(new THREE.SphereGeometry(rs*1.03,96,64),shadowMat);
+    shadow.scale.y=.92; group.add(shadow);
+
+    const corona=new THREE.Mesh(new THREE.SphereGeometry(rs*1.24,64,48),new THREE.MeshBasicMaterial({
+      color:0x050505,transparent:true,opacity:.22,side:THREE.BackSide,depthWrite:false
+    })); group.add(corona);
+
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(rs*1.50,Math.max(.07,rs*.045),20,256),new THREE.MeshBasicMaterial({
+      color:0xffffff,transparent:true,opacity:.92,blending:THREE.AdditiveBlending,depthWrite:false
+    }));
+    ring.rotation.x=Math.PI/2; group.add(ring);
+
+    const ring2=new THREE.Mesh(new THREE.TorusGeometry(rs*1.58,Math.max(.12,rs*.10),16,256),new THREE.MeshBasicMaterial({
+      color:0xffd9a0,transparent:true,opacity:.18,blending:THREE.AdditiveBlending,depthWrite:false
+    }));
+    ring2.rotation.x=Math.PI/2; group.add(ring2);
+
+    const glowTex=makeGlowTexture(THREE);
+    const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:0xffffff,transparent:true,opacity:.24,blending:THREE.AdditiveBlending,depthWrite:false}));
+    sprite.scale.set(rs*5.8,rs*5.8,1); group.add(sprite);
+
+    group.userData={rs,shadow,corona,ring,ring2,sprite};
+    return group;
+  }
+
+  function buildAccretionDisk(THREE, mass) {
+    const group=new THREE.Group(); group.name='RelativisticAccretionDisk';
+    const minDim=Math.min(stage.clientWidth||innerWidth,stage.clientHeight||innerHeight);
+    const rs=Math.max(1.55,minDim*(.009+mass*.00034));
+    group.rotation.x=.12;
+
+    // Layered toroidal plasma gives real 3D thickness instead of a flat ellipse.
+    const layers=[
+      {r:rs*2.0,t:rs*.16,c:0xffffff,o:.72},
+      {r:rs*2.55,t:rs*.20,c:0xffd18b,o:.48},
+      {r:rs*3.25,t:rs*.24,c:0xff7a32,o:.30},
+      {r:rs*4.05,t:rs*.18,c:0xff4b1f,o:.18}
+    ];
+    for(const d of layers){
+      const torus=new THREE.Mesh(new THREE.TorusGeometry(d.r,d.t,16,256),new THREE.MeshBasicMaterial({
+        color:d.c,transparent:true,opacity:d.o,blending:THREE.AdditiveBlending,depthWrite:false
+      }));
+      group.add(torus);
+    }
+
+    const count=5200,pos=new Float32Array(count*3),colors=new Float32Array(count*3);
+    const hot=new THREE.Color(0xffffff),warm=new THREE.Color(0xff8a32),red=new THREE.Color(0xff2c12);
+    for(let i=0;i<count;i++){
+      const f=Math.random(),r=rs*2.0+f*rs*2.9, a=Math.random()*Math.PI*2;
+      const thickness=(Math.random()-.5)*Math.max(.06,rs*.12)*(1-f*.55);
+      pos[i*3]=Math.cos(a)*r; pos[i*3+1]=thickness; pos[i*3+2]=Math.sin(a)*r;
+      const c=f<.18?hot:warm.clone().lerp(red,Math.pow(f,1.4));
+      const b=.45+.55*Math.random(); colors[i*3]=c.r*b; colors[i*3+1]=c.g*b; colors[i*3+2]=c.b*b;
+    }
+    const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(pos,3));geo.setAttribute('color',new THREE.BufferAttribute(colors,3));
+    const points=new THREE.Points(geo,new THREE.PointsMaterial({size:Math.max(.035,rs*.028),vertexColors:true,transparent:true,opacity:.9,blending:THREE.AdditiveBlending,depthWrite:false}));
+    group.add(points);
+    group.userData={rs,points,layers};
+    return group;
+  }
+
+  function buildLensing(THREE,mass){
+    const group=new THREE.Group();group.name='GravitationalLensing';
+    const minDim=Math.min(stage.clientWidth||innerWidth,stage.clientHeight||innerHeight);
+    const rs=Math.max(1.55,minDim*(.009+mass*.00034));
+    for(let i=0;i<12;i++){
+      const r=rs*(1.7+i*.48);
+      const curve=new THREE.EllipseCurve(0,0,r,r*(.42+.025*i),Math.PI*.05,Math.PI*1.95,false,0);
+      const pts=curve.getPoints(180).map(p=>new THREE.Vector3(p.x,rs*(.015*i),p.y));
+      const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({
+        color:i<3?0xffffff:0xdbe5f3,transparent:true,opacity:i<3?.24:.085,blending:THREE.AdditiveBlending,depthWrite:false
+      }));
+      line.rotation.y=(i-6)*.035;group.add(line);
+    }
+    return group;
+  }
+
+  function updateMassDependentGeometry() {
+    if(!state.three||!state.funnel||!state.blackHole||!state.diskGroup||!state.lensing)return;
+    const {THREE}=state.three;
+    const parent=state.root;
+    const old=[state.funnel,state.blackHole,state.diskGroup,state.lensing];
+    old.forEach(o=>parent.remove(o));
+    old.forEach(o=>{o.traverse(n=>{if(n.geometry)n.geometry.dispose();if(n.material){const ms=Array.isArray(n.material)?n.material:[n.material];ms.forEach(m=>m.dispose&&m.dispose());}});});
+    state.funnel=buildFunnel(THREE,state.mass);
+    state.blackHole=buildBlackHole(THREE,state.mass);
+    state.diskGroup=buildAccretionDisk(THREE,state.mass);
+    state.lensing=buildLensing(THREE,state.mass);
+    parent.add(state.funnel,state.lensing,state.diskGroup,state.blackHole);
+  }
+
+  async function initRenderer() {
+    const loaded=await loadThree();
+    const {THREE,OrbitControls}=loaded;
+    if(state.renderer)return;
+    state.renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true,powerPreference:'high-performance'});
+    state.renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));
+    state.renderer.setSize(Math.max(1,stage.clientWidth),Math.max(1,stage.clientHeight),false);
+    state.renderer.outputColorSpace=THREE.SRGBColorSpace;
+    state.renderer.toneMapping=THREE.ACESFilmicToneMapping;
+    state.renderer.toneMappingExposure=1.35;
+
+    state.scene=new THREE.Scene();
+    state.scene.background=new THREE.Color(0x010204);
+    state.camera=new THREE.PerspectiveCamera(48,Math.max(1,stage.clientWidth)/Math.max(1,stage.clientHeight),.05,500);
+    state.camera.position.set(0,13,30);
+    state.controls=new OrbitControls(state.camera,state.renderer.domElement);
+    state.controls.enableDamping=true;state.controls.dampingFactor=.075;
+    state.controls.enablePan=true;state.controls.panSpeed=.55;
+    state.controls.enableZoom=true;state.controls.zoomSpeed=.8;
+    state.controls.rotateSpeed=.55;state.controls.minDistance=8;state.controls.maxDistance=80;
+    state.controls.target.set(0,-2,0);state.controls.update();
+
+    state.root=new THREE.Group();state.scene.add(state.root);
+    state.stars=buildStars(THREE);state.scene.add(state.stars);
+
+    state.scene.add(new THREE.HemisphereLight(0xaec8ff,0x030405,.55));
+    const key=new THREE.PointLight(0xffffff,9,70,2);key.position.set(5,8,8);state.scene.add(key);
+    const rim=new THREE.PointLight(0xff6a2a,5,50,2);rim.position.set(-8,3,-5);state.scene.add(rim);
+
+    state.funnel=buildFunnel(THREE,state.mass);
+    state.blackHole=buildBlackHole(THREE,state.mass);
+    state.diskGroup=buildAccretionDisk(THREE,state.mass);
+    state.lensing=buildLensing(THREE,state.mass);
+    state.root.add(state.funnel,state.lensing,state.diskGroup,state.blackHole);
+
+    // Gentle depth motion: the fabric is stationary in space; only plasma and
+    // distant stars animate. This avoids fake wandering curvature lines.
+    window.addEventListener('resize',resizeRenderer,{passive:true});
+    state.resizeObserver=new ResizeObserver(resizeRenderer);state.resizeObserver.observe(stage);
+  }
+
+  function resizeRenderer(){
+    if(!state.renderer||!state.camera)return;
+    const w=Math.max(1,stage.clientWidth),h=Math.max(1,stage.clientHeight);
+    state.renderer.setSize(w,h,false);state.camera.aspect=w/h;state.camera.updateProjectionMatrix();
+  }
+
+  function animate(){
+    if(!state.enabled){state.raf=0;return;}
+    const now=performance.now();
+    if(state.lastTime==null)state.lastTime=now;
+    const dt=Math.min(.04,(now-state.lastTime)/1000);state.lastTime=now;state.time+=dt;
+    const d=state.diskGroup;
+    if(d){
+      d.rotation.y += dt*.22;
+      const pts=d.userData.points;
+      if(pts)pts.rotation.y += dt*.34;
+    }
+    if(state.blackHole){
+      const r=state.blackHole.userData.ring,r2=state.blackHole.userData.ring2;
+      if(r)r.material.opacity=.74+.18*Math.sin(state.time*2.3);
+      if(r2)r2.material.opacity=.13+.07*Math.sin(state.time*1.7+.8);
+    }
+    if(state.stars)state.stars.rotation.y += dt*.0018;
+    state.controls.update();state.renderer.render(state.scene,state.camera);
+    state.raf=requestAnimationFrame(animate);
+  }
+
   function setEnabled(on){
-    state.on=!!on;stage.classList.toggle('is-on',state.on);setOriginalVisible(!state.on);
-    const b=$('#cosmosim4DButton');
-    if(b){b.classList.toggle('is-on',state.on);b.textContent=state.on?'◉ 4D VISION · ON':'◉ 4D VISION · OFF';b.setAttribute('aria-pressed',String(state.on));}
-    if(state.on){resize();state.last=performance.now();if(!state.raf)state.raf=requestAnimationFrame(draw);}
-    else{if(state.raf)cancelAnimationFrame(state.raf);state.raf=0;ctx.clearRect(0,0,state.w,state.h);}
+    state.enabled=!!on;
+    stage.classList.toggle('is-on',state.enabled);
+    setOriginalVisible(!state.enabled);
+    const button=$('#cosmosim4DButton');
+    if(button){
+      button.classList.toggle('is-on',state.enabled);
+      button.textContent=state.enabled?'◉ 4D VISION · ON':'◉ 4D VISION · OFF';
+      button.setAttribute('aria-pressed',String(state.enabled));
+    }
+    if(state.enabled){
+      initRenderer().then(()=>{resizeRenderer();state.lastTime=performance.now();if(!state.raf)state.raf=requestAnimationFrame(animate);}).catch(err=>{
+        console.error('COSMOSIM 4D renderer failed:',err);setEnabled(false);
+      });
+    }else if(state.raf){
+      cancelAnimationFrame(state.raf);state.raf=0;
+    }
   }
-
-  function zoomAt(factor,x,y){
-    const old=state.zoom,next=Math.max(state.minZoom,Math.min(state.maxZoom,old*factor));if(next===old)return;state.zoom=next;
-    if(x!=null){const r=stage.getBoundingClientRect(),px=x-r.left-state.w/2,py=y-r.top-state.h/2,z=next/old;state.panX=px-(px-state.panX)*z;state.panY=py-(py-state.panY)*z;}
-  }
-  canvas.addEventListener('wheel',e=>{e.preventDefault();zoomAt(e.deltaY<0?1.13:.885,e.clientX,e.clientY);},{passive:false});
-  canvas.addEventListener('pointerdown',e=>{state.drag=true;state.dx=e.clientX;state.dy=e.clientY;canvas.classList.add('dragging');canvas.setPointerCapture(e.pointerId);});
-  canvas.addEventListener('pointermove',e=>{if(!state.drag)return;state.panX+=e.clientX-state.dx;state.panY+=e.clientY-state.dy;state.dx=e.clientX;state.dy=e.clientY;});
-  const end=e=>{state.drag=false;canvas.classList.remove('dragging');try{canvas.releasePointerCapture(e.pointerId);}catch(_){} };canvas.addEventListener('pointerup',end);canvas.addEventListener('pointercancel',end);
-
-  const touches=new Map();
-  canvas.addEventListener('touchstart',e=>{for(const t of e.changedTouches)touches.set(t.identifier,[t.clientX,t.clientY]);if(touches.size===2){const a=[...touches.values()];state.pinch=Math.hypot(a[0][0]-a[1][0],a[0][1]-a[1][1]);}},{passive:false});
-  canvas.addEventListener('touchmove',e=>{if(touches.size!==2)return;e.preventDefault();for(const t of e.changedTouches)touches.set(t.identifier,[t.clientX,t.clientY]);const a=[...touches.values()],d=Math.hypot(a[0][0]-a[1][0],a[0][1]-a[1][1]);if(state.pinch)zoomAt(d/state.pinch);state.pinch=d;},{passive:false});
-  const touchEnd=e=>{for(const t of e.changedTouches)touches.delete(t.identifier);if(touches.size<2)state.pinch=0;};canvas.addEventListener('touchend',touchEnd,{passive:false});canvas.addEventListener('touchcancel',touchEnd,{passive:false});
 
   function installButton(){
-    if($('#cosmosim4DButton'))return;const p=$('#panelBody');if(!p)return;
-    const b=document.createElement('button');b.id='cosmosim4DButton';b.type='button';b.className='secondary';b.textContent='◉ 4D VISION · OFF';b.title='Black Hole 4D spacetime view';b.setAttribute('aria-pressed','false');
-    b.addEventListener('click',()=>{if(window.__COSMOSIM_ACTIVE_SIM__&&window.__COSMOSIM_ACTIVE_SIM__!=='blackhole')return;setEnabled(!state.on);});p.appendChild(b);
+    const panel=$('#panelBody');
+    if(!panel)return;
+    let b=$('#cosmosim4DButton');
+    if(!b){
+      b=document.createElement('button');b.id='cosmosim4DButton';b.type='button';b.className='secondary';
+      b.textContent='◉ 4D VISION · OFF';b.title='Open the 3D Schwarzschild spacetime-funnel view for the original Black Hole Lab';
+      b.setAttribute('aria-pressed','false');
+      b.addEventListener('click',()=>{
+        const active=window.__COSMOSIM_ACTIVE_SIM__||'blackhole';
+        if(active!=='blackhole')return;
+        setEnabled(!state.enabled);
+      });
+      panel.appendChild(b);
+    }
+    const active=window.__COSMOSIM_ACTIVE_SIM__||'blackhole';
+    b.style.display=active==='blackhole'?'block':'none';
+    if(active!=='blackhole'&&state.enabled)setEnabled(false);
   }
-  document.querySelectorAll('.simChoice').forEach(b=>b.addEventListener('click',()=>{window.__COSMOSIM_ACTIVE_SIM__=b.dataset.sim;if(b.dataset.sim!=='blackhole')setEnabled(false);}));
-  const observer=new MutationObserver(installButton);observer.observe(document.body,{childList:true,subtree:true});installButton();addEventListener('resize',resize);
+
+  document.querySelectorAll('.simChoice').forEach(button=>button.addEventListener('click',()=>{
+    window.__COSMOSIM_ACTIVE_SIM__=button.dataset.sim;
+    installButton();
+    if(button.dataset.sim!=='blackhole')setEnabled(false);
+  }));
+  const initial=$('.simChoice.active');
+  window.__COSMOSIM_ACTIVE_SIM__=initial?.dataset.sim||'blackhole';
+  const observer=new MutationObserver(installButton);observer.observe(document.body,{childList:true,subtree:true});
+  installButton();
 })();
